@@ -106,7 +106,7 @@ async def on_message(message):
         return
     
 
-    if f"<@{client.user.id}>" in message.content or f"<@!{client.user.id}>" in message.content or f"@{client.user.name}" or f"@{client.user.name}" in message.content:
+    if f"<@{client.user.id}>" in message.content or f"<@!{client.user.id}>" in message.content or f"@{client.user.name}" or f"@&{client.user.id}" in message.content:
         prompt = strip_bot_mention(message)
         print(f"Prompt after mention strip: '{prompt}'")
 
