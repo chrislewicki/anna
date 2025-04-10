@@ -11,6 +11,7 @@ def set_status():
     return {"status": "ok"}, 200
 
 def is_model_online():
+    print(f"[status_api] Returning anna_online = {anna_online}")
     return anna_online
 
 if __name__ == "__main__":

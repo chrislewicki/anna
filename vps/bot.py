@@ -118,6 +118,7 @@ async def on_message(message):
 
         system_prompt = get_prompt_for_channel(message.channel.id)
 
+        print("[bot] Checking model availability...")
         if not is_model_online():
             await message.channel.send("brain's offline. running in dipshit mode.")
             return
