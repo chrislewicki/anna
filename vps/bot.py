@@ -16,6 +16,14 @@ intents.message_content = True
 
 client = discord.Client(intents=intents)
 
+# OK we need a memory structure to keep track of conversation threads and the related context
+# since threads have unique ids, we can use that as a key
+# and the context for the thread can be the value
+# I think we can just use a dictionary for this
+# we also need a way to reconstruct the context for a thread because this dictionary will be
+# cleared when the bot restarts, attaching the context to the thread itself somehow
+thread_context = {}
+
 # I asked ChatGPT to give me prompts to turn around and give to a local model,
 # because I don't know how to write good prompts. We'll tweak them if they suck
 # tbh they probably will lol lmao
@@ -93,8 +101,12 @@ async def on_message(message):
 
     if message.author == client.user:
         return
+    # Ignore messages from other bots
+    if message.author.bot:
+        return
+    
 
-    if f"<@{client.user.id}>" in message.content or f"<@!{client.user.id}>" in message.content:
+    if f"<@{client.user.id}>" in message.content or f"<@!{client.user.id}>" in message.content or f"@{client.user.name}" or f"@{client.user.name}" in message.content:
         prompt = strip_bot_mention(message)
         print(f"Prompt after mention strip: '{prompt}'")
 
