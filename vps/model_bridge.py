@@ -1,7 +1,7 @@
 import requests
 import json
 
-MODEL_URL = "http://your-laptop-ip:11434/v1/chat/completions"
+MODEL_URL = "http://mikoshi.snowy-hen.ts.net:11434/v1/chat/completions"
 MODEL_TIMEOUT = 5
 
 def query_llm(messages):
@@ -18,4 +18,5 @@ def query_llm(messages):
             return resp.json()['choices'][0]['message']['content'].strip()
         return None
     except Exception:
+        print("MODEL CALL FAILED")
         return None

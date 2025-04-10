@@ -1,10 +1,13 @@
 import discord
 import requests
 import json
+import os
+from datetime import datetime, timezone
 from model_bridge import query_llm
 from status_api import is_model_online
 
-DISCORD_TOKEN = "your_discord_token_here"
+
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 MODEL_TIMEOUT = 5
 
 intents = discord.Intents.default()
@@ -53,8 +56,14 @@ channel_state = {}
 MOOD_DURATION = timedelta(minutes=5)
 FERAL_DURATION = timedelta(minutes=5)
 
+def strip_bot_mention(message):
+    raw = message.content
+    for variant in [f"<@{client.user.id}>", f"<@!{client.user.id}>"]:
+        raw = raw.replace(variant, "")
+    return raw.strip()
+
 def get_prompt_for_channel(channel_id):
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     state = channel_state.get(channel_id, {})
 
     if "feral_until" in state and state["feral_until"] > now:
@@ -76,12 +85,23 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
+    print(f"---\nMESSAGE RECEIVED:\nFrom: {message.author}\nContent: {message.content}\nMentions: {message.mentions}\nRaw data: {message.raw_mentions}\n---")
+
     if message.author == client.user:
         return
 
-    if client.user in message.mentions:
-        prompt = message.clean_content.replace(f"@{client.user.name}", "").strip()
-        now = datetime.utcnow()
+    if f"<@{client.user.id}>" in message.content or f"<@!{client.user.id}>" in message.content:
+        prompt = strip_bot_mention(message)
+        print(f"Prompt after mention strip: '{prompt}'")
+
+        print("Raw content:", message.content)
+        print("Mentions:", message.mentions)
+        print("Author:", message.author)
+
+        if not prompt:
+            await message.channel.send("you rang, nerd?")
+            return
+        now = datetime.now(timezone.utc)
 
         # Trigger feral mode
         if prompt.lower().startswith("go feral") or prompt.lower().startswith("unchained:"):
@@ -107,6 +127,7 @@ async def on_message(message):
             {"role": "user", "content": prompt}
         ]
 
+        print("Sending message to model:", messages)
         response = query_llm(messages)
         await message.channel.send(response or "brain exploded mid-thought, try again later.")
 
