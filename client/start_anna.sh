@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 # Replace with your real command to start the model
 ollama serve &
