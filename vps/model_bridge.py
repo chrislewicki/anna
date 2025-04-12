@@ -1,8 +1,8 @@
 import requests
 import json
 
-MODEL_URL = "https://mikoshi.snowy-hen.ts.net:11434/v1/chat/completions"
-MODEL_TIMEOUT = 5
+MODEL_URL = "http://mikoshi.snowy-hen.ts.net:11434/v1/chat/completions"
+MODEL_TIMEOUT = 30
 
 def send_payload(payload):
     try:
