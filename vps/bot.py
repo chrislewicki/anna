@@ -15,7 +15,6 @@ intents.messages = True
 intents.message_content = True
 
 client = discord.Client(intents=intents)
-load_context()
 
 # OK we need a memory structure to keep track of conversation threads and the related context
 # since posts have unique ids, we can use that as a key
@@ -45,6 +44,8 @@ def save_context():
         print("[bot] Saved thread context to disk.")
 
 atexit.register(save_context)
+
+load_context()
 
 # I asked ChatGPT to give me prompts to turn around and give to a local model,
 # because I don't know how to write good prompts. We'll tweak them if they suck
