@@ -253,6 +253,12 @@ async def on_message(message):
         # Save the updated context to disk
         save_context()
 
+        if response:
+            await message.reply(response)
+        else:
+            await message.reply("brain exploded mid-thought, try again later.")
+
+
 
 
 client.run(DISCORD_TOKEN)
