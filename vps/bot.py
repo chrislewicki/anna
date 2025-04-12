@@ -183,7 +183,7 @@ async def on_message(message):
             # we need to walk up the chain of replies to find the first message and construct the chain from there
             reply_chain_to_modelmessages(message, messages)
             # now send the message chain to the model
-            response, context = query_llm(messages)
+            response = query_llm(messages)
             newMessage = await message.reply(response or "brain exploded mid-thought, try again later.")
             if(response and context):
                 # Append the new message to the context
