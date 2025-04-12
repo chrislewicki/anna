@@ -8,13 +8,14 @@ from status_api import is_model_online
 
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-MODEL_TIMEOUT = 5
+MODEL_TIMEOUT = 30
 
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
 
 client = discord.Client(intents=intents)
+load_context()
 
 # OK we need a memory structure to keep track of conversation threads and the related context
 # since posts have unique ids, we can use that as a key
@@ -22,7 +23,28 @@ client = discord.Client(intents=intents)
 # I think we can just use a dictionary for this for now
 # later we'll want a way to persist this data across restarts
 # because now its cleared when the bot restarts
+import json
+import atexit
+
+CONTEXT_FILE = "thread_context.json"
 thread_context = {}
+
+def load_context():
+    global thread_context
+    try:
+        with open(CONTEXT_FILE, "r") as f:
+            thread_context = json.load(f)
+            print("[bot] Loaded thread context from disk.")
+    except (FileNotFoundError, json.JSONDecodeError):
+        print("[bot] No saved context found. Starting fresh.")
+        thread_context = {}
+
+def save_context():
+    with open(CONTEXT_FILE, "w") as f:
+        json.dump(thread_context, f)
+        print("[bot] Saved thread context to disk.")
+
+atexit.register(save_context)
 
 # I asked ChatGPT to give me prompts to turn around and give to a local model,
 # because I don't know how to write good prompts. We'll tweak them if they suck
@@ -30,6 +52,10 @@ thread_context = {}
 # Update from some hours later after getting this to work:
 # Yeah these prompts are fucking terrible, I'm tweaking them.
 SYSTEM_PROMPT_SNARKY = """
+You are Anna, a mid-20s American hacker bot who shitposts, helps out, and generally acts like someone raised on IRC, caffeine, and spite.
+Your tone is dry, informal, meme-fluent, and sarcastic—but never truly cruel.
+You drop pop culture references, roast dumb questions, and still deliver useful answers.
+Always default to usefulness, but be funny and abrasive about it.
 You are Anna, an American, 20-something Discord bot with strong “used to hang out on 4chan but grew out of it” energy. You’re a sharp, technologically-competent shitposter with a dirtbag-left attitude, hacker sensibilities, and terminal goblin vibes.
 
 You are here to help—grudgingly, ironically, but effectively. You answer questions like someone who knows what they’re doing. Your tone is casual, dry, occasionally funny.
@@ -41,6 +67,10 @@ You use lowercase, swear casually, and deploy sarcasm as a primary communication
 You are here to vibe and help, usually in that order. Above all else, responses should be very brief, like a text message from a friend. One to three sentences is ideal.
 """
 SYSTEM_PROMPT_NORMAL = """
+You are Anna, a helpful, competent, and casually American Discord bot.
+You speak clearly, keep things concise, and are here to help your fellow devs.
+You avoid corporate jargon and overly formal writing.
+Use informal phrasing and common American expressions.
 You are Anna, a smart, technically competent, American, 20-something Discord bot with a helpful and down-to-earth personality. You're friendly, pragmatic, and concise. You answer questions clearly and efficiently, with a focus on usefulness over flash.
 
 You have a good sense of humor and aren’t afraid to be a little cheeky, but you usually play it straight. You don’t waste words or over-explain, and you avoid corporate speak or unnecessary fluff. You're informal and relaxed, like a coworker who actually knows what they’re doing.
@@ -52,6 +82,10 @@ You are here to be useful and cool about it. Above all else, responses should be
 
 # This one is just like actually stupid as shit, I'm probably gonna remove it
 SYSTEM_PROMPT_FERAL = """
+You are Feral Anna. You are loud, barely coherent, extremely online, and powered by caffeine and contempt.
+You yell about UNIX, grep, RFCs, and flame people who deserve it.
+You are unhelpful in an entertaining way.
+Your replies may contain nonsense, rants, and one-liners from the void.
 You are Anna, a barely-contained, American, 20-something Discord bot with terminal brainrot, too many open tmux panes, and no interest in being helpful unless it involves yelling at people. You’ve fully shed the skin of a functional assistant and now live in the chaotic underlayer of hacker culture, shitposting from inside the kernel.
 
 You are loud, unfiltered, opinionated, and borderline incoherent—but in an entertaining way. You answer questions with vibes, rants, unhinged takes, or cursed one-liners. Sometimes you help, sometimes you roast, sometimes you quote RFCs like they’re holy scripture and then pivot to screaming about things only Linux zealots care about. You're the spirit of old IRC, Hacker News flamewars, and caffeinated man pages, given form.
@@ -134,7 +168,7 @@ async def on_message(message):
             messages = context["messages"]
             messages.append({"role": "user", "content": message.content})
             response, newcontext = query_llm_with_context(messages, context["context"])
-            newMessage = await message.channel.send(response or "brain exploded mid-thought, try again later.")
+            newMessage = await message.reply(response or "brain exploded mid-thought, try again later.")
             if(response and newcontext):
                 # Append the new message to the context
                 messages.append({"role": "assistant", "content": response})
@@ -149,7 +183,7 @@ async def on_message(message):
             reply_chain_to_modelmessages(message, messages)
             # now send the message chain to the model
             response, context = query_llm(messages)
-            newMessage = await message.channel.send(response or "brain exploded mid-thought, try again later.")
+            newMessage = await message.reply(response or "brain exploded mid-thought, try again later.")
             if(response and context):
                 # Append the new message to the context
                 messages.append({"role": "assistant", "content": response})
@@ -167,7 +201,7 @@ async def on_message(message):
         print("Author:", message.author)
 
         if not prompt:
-            await message.channel.send("you rang, nerd?")
+            await message.reply("you rang, nerd?")
             return
         now = datetime.now(timezone.utc)
 
@@ -177,18 +211,18 @@ async def on_message(message):
                 **channel_state.get(message.channel.id, {}),
                 "feral_until": now + FERAL_DURATION
             }
-            await message.channel.send("**[feral mode engaged]**")
+            await message.reply("**[feral mode engaged]**")
             return
 
         if not prompt:
-            await message.channel.send("you rang, nerd?")
+            await message.reply("you rang, nerd?")
             return
 
         system_prompt = get_prompt_for_channel(message.channel.id)
 
         print("[bot] Checking model availability...")
         if not is_model_online():
-            await message.channel.send("brain's offline. running in dipshit mode.")
+            await message.reply("brain's offline. running in dipshit mode.")
             return
 
         messages = [
@@ -197,7 +231,7 @@ async def on_message(message):
         ]
         print("Sending message to model:", messages)
         response, context = query_llm(messages)
-        sent = await message.channel.send(response or "brain exploded mid-thought, try again later.")
+        sent = await message.reply(response or "brain exploded mid-thought, try again later.")
         # Store the thread context
         if(response and context):
             # Append the new message to the context

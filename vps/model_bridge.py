@@ -22,7 +22,7 @@ def query_llm(messages):
         "model": "mistral",
         "messages": messages,
         "temperature": 0.7,
-        "max_tokens": 200
+        "max_tokens": 8124
     })
     if resp is not None:
         return resp.json()['choices'][0]['message']['content'].strip(), resp.json()['choices'][0]['message']['context']
@@ -34,7 +34,7 @@ def query_llm_with_context(messages, context):
         "messages": messages,
         "context": context,
         "temperature": 0.7,
-        "max_tokens": 200
+        "max_tokens": 8124
     })
     if resp is not None:
         return resp.json()['choices'][0]['message']['content'].strip(), resp.json()['choices'][0]['message']['context']
