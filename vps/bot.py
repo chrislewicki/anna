@@ -3,7 +3,7 @@ import requests
 import json
 import os
 from datetime import datetime, timezone
-from model_bridge import query_llm
+from model_bridge import query_llm, query_llm_with_context
 from status_api import is_model_online
 
 
@@ -15,6 +15,14 @@ intents.messages = True
 intents.message_content = True
 
 client = discord.Client(intents=intents)
+
+# OK we need a memory structure to keep track of conversation threads and the related context
+# since posts have unique ids, we can use that as a key
+# and the context for the thread can be the value
+# I think we can just use a dictionary for this for now
+# later we'll want a way to persist this data across restarts
+# because now its cleared when the bot restarts
+thread_context = {}
 
 # I asked ChatGPT to give me prompts to turn around and give to a local model,
 # because I don't know how to write good prompts. We'll tweak them if they suck
@@ -83,6 +91,22 @@ def get_prompt_for_channel(channel_id):
 
     return SYSTEM_PROMPT_SNARKY if channel_state[channel_id]["snarky"] else SYSTEM_PROMPT_SNARKY # hack to disable SYSTEM_PROMPT_NORMAL because it sucks and sounds generic
 
+def reply_chain_to_modelmessages(discordMessage, modelMessages):
+    # we need to walk up the chain of replies to find the first message and construct the chain from there
+    if discordMessage.reference and discordMessage.reference.resolved:
+        reply_chain_to_modelmessages(discordMessage.reference.resolved, modelMessages)
+        # now add this message to the chain
+        if(discordMessage.author == client.user):
+            modelMessages.append({"role": "assistant", "content": discordMessage.content})
+        else:
+            modelMessages.append({"role": "user", "content": discordMessage.content})
+    else:
+        # we need to add this message to the chain
+        if(discordMessage.author == client.user):
+            modelMessages.append({"role": "assistant", "content": discordMessage.content})
+        else:
+            modelMessages.append({"role": "user", "content": discordMessage.content})
+
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user}")
@@ -93,8 +117,48 @@ async def on_message(message):
 
     if message.author == client.user:
         return
+    # Ignore messages from other bots
+    if message.author.bot:
+        return
+    
+    # check if this message is a reply to a message from the bot
+    if message.reference and message.reference.resolved and message.reference.resolved.author == client.user:
+        # check if the message is a reply to a message from the bot
+        print("Message is a reply to a message from the bot")
+        # get the context for this message
+        context = thread_context.get(message.reference.message_id)
+        if context:
+            print("Found stored context for this message:", context)
+            # send the context to the model
+            system_prompt = get_prompt_for_channel(message.channel.id)
+            messages = context["messages"]
+            messages.append({"role": "user", "content": message.content})
+            response, newcontext = query_llm_with_context(messages, context["context"])
+            newMessage = await message.channel.send(response or "brain exploded mid-thought, try again later.")
+            if(response and newcontext):
+                # Append the new message to the context
+                messages.append({"role": "assistant", "content": response})
+                # Store the thread context
+                thread_context[newMessage.id] = {"context":newcontext, "messages": messages}
+        # iF there's no context, just send the message chain to the model
+        else:
+            print("No stored context for this message, sending the message chain to the model")
+            system_prompt = get_prompt_for_channel(message.channel.id)
+            messages = [{"role": "system", "content": system_prompt}]
+            # we need to walk up the chain of replies to find the first message and construct the chain from there
+            reply_chain_to_modelmessages(message, messages)
+            # now send the message chain to the model
+            response, context = query_llm(messages)
+            newMessage = await message.channel.send(response or "brain exploded mid-thought, try again later.")
+            if(response and context):
+                # Append the new message to the context
+                messages.append({"role": "assistant", "content": response})
+                # Store the thread context
+                thread_context[newMessage.id] = {"context":context, "messages": messages}
 
-    if f"<@{client.user.id}>" in message.content or f"<@!{client.user.id}>" in message.content:
+
+    # New thread context on mentions
+    if f"<@{client.user.id}>" in message.content or f"<@!{client.user.id}>" in message.content or f"@{client.user.name}" or f"@&{client.user.id}" in message.content:
         prompt = strip_bot_mention(message)
         print(f"Prompt after mention strip: '{prompt}'")
 
@@ -131,9 +195,14 @@ async def on_message(message):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt}
         ]
-
         print("Sending message to model:", messages)
-        response = query_llm(messages)
-        await message.channel.send(response or "brain exploded mid-thought, try again later.")
+        response, context = query_llm(messages)
+        sent = await message.channel.send(response or "brain exploded mid-thought, try again later.")
+        # Store the thread context
+        if(response and context):
+            # Append the new message to the context
+            messages.append({"role": "assistant", "content": response})
+            thread_context[message.id] = {"context":context, "messages": messages}
+
 
 client.run(DISCORD_TOKEN)
