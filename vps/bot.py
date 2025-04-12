@@ -226,18 +226,33 @@ async def on_message(message):
             await message.reply("brain's offline. running in dipshit mode.")
             return
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt}
-        ]
-        print("Sending message to model:", messages)
-        response, context = query_llm(messages)
-        sent = await message.reply(response or "brain exploded mid-thought, try again later.")
-        # Store the thread context
-        if(response and context):
-            # Append the new message to the context
-            messages.append({"role": "assistant", "content": response})
-            thread_context[message.id] = {"context":context, "messages": messages}
+        thread_id = str(message.channel.id)
+
+        # Initialize thread context if needed
+        if thread_id not in thread_context:
+            thread_context[thread_id] = []
+
+        # Append the current user message
+        thread_context[thread_id].append({"role": "user", "content": prompt})
+
+        # Cap thread length to avoid bloating memory / model input
+        MAX_CONTEXT_MESSAGES = 12  # total messages (user + assistant), not including system prompt
+
+        if len(thread_context[thread_id]) > MAX_CONTEXT_MESSAGES:
+            thread_context[thread_id] = thread_context[thread_id][-MAX_CONTEXT_MESSAGES:]
+
+        # Build message history including the system prompt
+        messages = [{"role": "system", "content": system_prompt}] + thread_context[thread_id]
+
+        # Send to model
+        response = query_llm(messages)
+
+        # Append the bot's reply to the thread
+        thread_context[thread_id].append({"role": "assistant", "content": response})
+
+        # Save the updated context to disk
+        save_context()
+
 
 
 client.run(DISCORD_TOKEN)
