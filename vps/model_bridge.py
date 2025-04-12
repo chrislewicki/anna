@@ -25,7 +25,7 @@ def query_llm(messages):
         "max_tokens": 200
     })
     if resp is not None:
-        return resp.json()['choices'][0]['message']['content'].strip()
+        return resp.json()['choices'][0]['message']['content'].strip(), resp.json()['choices'][0]['message']['context']
     return None
 
 def query_llm_with_context(messages, context):
