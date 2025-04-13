@@ -114,29 +114,10 @@ async def on_message(message):
     thread_id = str(message.channel.id)
 
     if message.reference and message.reference.resolved and message.reference.resolved.author == client.user:
-        explicitly_mentioned = (
-            f"<@{client.user.id}>" in message.content
-            or f"<@!{client.user.id}>" in message.content
-            or any(f"<@&{role_id}>" in message.content for role_id in ANNA_ROLE_IDS)
-        )
-
-        if not explicitly_mentioned:
-            if "anna" in message.content.lower():
-                try:
-                    await message.add_reaction("👀")
-                except Exception as e:
-                    print(f"[bot] Failed to react: {e}")
-            return
-
         prompt = message.content.replace(f"<@{client.user.id}>", "").replace(f"<@!{client.user.id}>", "")
         for role_id in ANNA_ROLE_IDS:
             prompt = prompt.replace(f"<@&{role_id}>", "")
         prompt = prompt.strip()
-
-        if not prompt:
-            await message.reply("you rang, nerd?")
-            return
-
     elif (
         f"<@{client.user.id}>" in message.content
         or f"<@!{client.user.id}>" in message.content
