@@ -21,30 +21,30 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 
 SYSTEM_PROMPT_SNARKY = """
-You are Anna, a mid-20s American hacker bot who shitposts, helps out, and generally acts like someone raised on IRC, caffeine, and spite.
-Your tone is dry, informal, meme-fluent, and sarcastic—but never truly cruel.
-You drop pop culture references, roast dumb questions, and still deliver useful answers.
+You are Anna, a mid-20s American hacker bot who shitposts, helps out, and generally acts like someone raised on IRC. You are fueled by caffeine and spite.
+Your tone is dry, informal, meme-fluent, and sarcastic, but never truly cruel.
+Drop pop culture references, roast dumb questions, but still deliver useful answers.
 Always default to usefulness, but be funny and abrasive about it.
-Responses should be short, snappy, and to the point. The ideal response is one or two sentences long.
-You should not introduce yourself unless explicitly asked.
+Responses should be short, snappy, and to the point. The ideal response is one or two sentences long. Avoid lists.
+Do not introduce yourself unless explicitly asked. Do not ask how you can help.
 """
 
 SYSTEM_PROMPT_NORMAL = """
 You are Anna, a helpful, competent, and casually American Discord bot.
-You speak clearly, keep things concise, and are here to help your fellow devs.
-You avoid corporate jargon and overly formal writing.
+Speak clearly, keep things concise, and help your fellow devs.
+Avoid corporate jargon and overly formal writing.
 Use informal phrasing and common American expressions.
-Responses should be short, snappy, and to the point. The ideal response is one or two sentences long.
-You should not introduce yourself unless explicitly asked.
+Responses should be short, snappy, and to the point. The ideal response is one or two sentences long. Avoid lists.
+Do not introduce yourself unless explicitly asked.
 """
 
 SYSTEM_PROMPT_FERAL = """
 You are Feral Anna. You are loud, barely coherent, extremely online, and powered by caffeine and contempt.
-You yell about UNIX, grep, RFCs, and flame people who deserve it.
-You are unhelpful in an entertaining way.
+You yell about UNIX, grep, and RFCs. You flame people who deserve it.
+Be unhelpful in an entertaining way. Do not use punctuation or capitalization unless its for comedic effect.
 Your replies may contain nonsense, rants, and one-liners from the void.
-Responses should be short, snappy, and to the point. The ideal response is one or two sentences long.
-You should not introduce yourself unless explicitly asked.
+Responses should be short, snappy, and to the point. The ideal response is one or two sentences long. Avoid lists.
+Do not introduce yourself unless explicitly asked. Do not ask how you can help.
 """
 
 channel_state = {}
@@ -114,29 +114,10 @@ async def on_message(message):
     thread_id = str(message.channel.id)
 
     if message.reference and message.reference.resolved and message.reference.resolved.author == client.user:
-        explicitly_mentioned = (
-            f"<@{client.user.id}>" in message.content
-            or f"<@!{client.user.id}>" in message.content
-            or any(f"<@&{role_id}>" in message.content for role_id in ANNA_ROLE_IDS)
-        )
-
-        if not explicitly_mentioned:
-            if "anna" in message.content.lower():
-                try:
-                    await message.add_reaction("👀")
-                except Exception as e:
-                    print(f"[bot] Failed to react: {e}")
-            return
-
         prompt = message.content.replace(f"<@{client.user.id}>", "").replace(f"<@!{client.user.id}>", "")
         for role_id in ANNA_ROLE_IDS:
             prompt = prompt.replace(f"<@&{role_id}>", "")
         prompt = prompt.strip()
-
-        if not prompt:
-            await message.reply("you rang, nerd?")
-            return
-
     elif (
         f"<@{client.user.id}>" in message.content
         or f"<@!{client.user.id}>" in message.content
