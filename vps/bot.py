@@ -81,7 +81,7 @@ def get_prompt_for_channel(channel_id):
             "feral_until": state.get("feral_until", now)
         }
 
-    return SYSTEM_PROMPT_SNARKY if channel_state[channel_id]["snarky"] else SYSTEM_PROMPT_NORMAL
+    return SYSTEM_PROMPT_SNARKY if channel_state[channel_id]["snarky"] else SYSTEM_PROMPT_SNARKY #bodge to disable normal prompt
 
 @client.event
 async def on_ready():
