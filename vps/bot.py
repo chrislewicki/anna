@@ -107,7 +107,7 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    if message.content.lower().strip() in ["@anna delete yourself", "@anna reset context", "@anna forget everything"]:
+    if message.content.lower().strip() in ["anna, delete yourself", "anna, reset context", "anna, forget everything"]:
         clear_context()
         await message.reply("i've deleted myself. i got no chance to win.")
         return
