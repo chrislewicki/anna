@@ -9,6 +9,7 @@ from status_api import is_model_online
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 MODEL_TIMEOUT = 30
+ANNA_ROLE_IDS = [1359662416165732464]
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -158,6 +159,20 @@ async def on_message(message):
     
     # check if this message is a reply to a message from the bot
     if message.reference and message.reference.resolved and message.reference.resolved.author == client.user:
+        # Only proceed if the bot is explicitly mentioned in the reply
+        if not (
+            f"<@{client.user.id}>" in message.content
+            or f"<@!{client.user.id}>" in message.content
+            or any(f"<@&{role_id}>" in message.content for role_id in ANNA_ROLE_IDS)
+        ):
+            # Optionally react if "anna" is casually mentioned without a ping
+            if "anna" in message.content.lower():
+                try:
+                    await message.add_reaction("👀")
+                except Exception as e:
+                    print(f"[bot] Failed to react: {e}")
+            return  # Exit early unless explicitly mentioned
+
         # check if the message is a reply to a message from the bot
         print("Message is a reply to a message from the bot")
         # get the context for this message
@@ -193,7 +208,12 @@ async def on_message(message):
 
 
     # New thread context on mentions
-    if f"<@{client.user.id}>" in message.content or f"<@!{client.user.id}>" in message.content or f"@{client.user.name}" or f"@&{client.user.id}" in message.content:
+    if (
+        f"<@{client.user.id}>" in message.content
+        or f"<@!{client.user.id}>" in message.content
+        or any(f"<@&{role_id}>" in message.content for role_id in ANNA_ROLE_IDS)
+    ):
+
         prompt = strip_bot_mention(message)
         print(f"Prompt after mention strip: '{prompt}'")
 
