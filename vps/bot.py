@@ -69,6 +69,15 @@ def save_context():
         json.dump(thread_context, f)
         print("[bot] Saved thread context to disk.")
 
+def clear_context():
+    global thread_context
+    thread_context = {}
+    try:
+        os.remove(CONTEXT_FILE)
+        print("[bot] Context file deleted successfully.")
+    except FileNotFoundError:
+        print("[bot] No context file to delete.")
+
 atexit.register(save_context)
 load_context()
 
@@ -98,6 +107,10 @@ async def on_message(message):
     if message.author == client.user:
         return
 
+    if message.content.lower().strip() in ["@anna delete yourself", "@anna reset context", "@anna forget everything"]:
+        clear_context()
+        await message.reply("i've deleted myself. i got no chance to win.")
+        return
     thread_id = str(message.channel.id)
 
     if message.reference and message.reference.resolved and message.reference.resolved.author == client.user:
