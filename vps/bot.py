@@ -130,7 +130,7 @@ async def on_message(message):
             await message.reply("you rang, nerd?")
             return
     else:
-        if "anna" in message.content.lower():
+        if any(trigger in message.content.lower() for trigger in [" anna ", " anna,", " anna.", " anna!", " anna;", " anna?"]):
             try:
                 await message.add_reaction("👀")
             except Exception as e:
