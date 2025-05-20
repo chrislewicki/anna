@@ -1,14 +1,22 @@
 import requests
 import json
+import os
 
-MODEL_URL = "http://mikoshi.snowy-hen.ts.net:11434/v1/chat/completions"
+
+# This is a private endpoint, don't even try
+MODEL_URL = "https://ppjmbaf3sh6p5tx2iaz53gmr.agents.do-ai.run/api/v1/chat/completions"
+AUTH_TOKEN = os.getenv("AUTH_TOKEN")
 MODEL_TIMEOUT = 20
 
 
 def send_payload(payload):
     try:
         print(f"[send_payload] Sending payload to model: {payload}")
-        resp = requests.post(MODEL_URL, json=payload, timeout=MODEL_TIMEOUT)
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {AUTH_TOKEN}"
+        }
+        resp = requests.post(MODEL_URL, headers=headers, json=payload, timeout=MODEL_TIMEOUT)
         print(f"[send_payload] Response code: {resp.status_code}")
         print(f"[send_payload] Response body: {resp.text}")
         if resp.status_code == 200:
