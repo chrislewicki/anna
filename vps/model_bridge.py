@@ -2,7 +2,8 @@ import requests
 import json
 
 MODEL_URL = "http://mikoshi.snowy-hen.ts.net:11434/v1/chat/completions"
-MODEL_TIMEOUT = 30
+MODEL_TIMEOUT = 20
+
 
 def send_payload(payload):
     try:
@@ -17,6 +18,7 @@ def send_payload(payload):
         print(f"[send_payload] Exception: {e}")
         return None
 
+
 def query_llm(messages):
     resp = send_payload( {
         "model": "mistral",
@@ -27,6 +29,7 @@ def query_llm(messages):
     if resp is not None:
         return resp.json()['choices'][0]['message']['content'].strip()
     return None
+
 
 def query_llm_with_context(messages, context):
     resp = send_payload({
