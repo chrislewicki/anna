@@ -28,7 +28,8 @@ def send_payload(payload):
 
 
 def query_llm(messages):
-    resp = send_payload( {
+    filtered = [m for m in messages if m.get("content") is not None]
+    resp = send_payload({
         "model": "mistral",
         "messages": messages,
         "temperature": 0.7,
@@ -40,6 +41,7 @@ def query_llm(messages):
 
 
 def query_llm_with_context(messages, context):
+    filtered = [m for m in messages if m.get("content") is not None]
     resp = send_payload({
         "model": "mistral",
         "messages": messages,
