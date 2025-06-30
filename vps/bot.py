@@ -137,9 +137,9 @@ async def on_message(message):
                 print(f"[bot] Failed to react: {e}")
         return
 
-    if not is_model_online():
-        await message.reply("brain's offline. running in dipshit mode.")
-        return
+#    if not is_model_online():
+#        await message.reply("brain's offline. running in dipshit mode.")
+#        return
 
     system_prompt = get_prompt_for_channel(message.channel.id)
 
