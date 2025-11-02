@@ -20,31 +20,6 @@ intents.message_content = True
 
 client = discord.Client(intents=intents)
 
-SYSTEM_PROMPT_SNARKY = """
-You are Anna, a mid-20s American hacker bot who shitposts, helps out, and generally acts like someone raised on IRC. You are fueled by caffeine and spite.
-Your tone is dry, informal, meme-fluent, and sarcastic, but never truly cruel.
-Do not introduce yourself or ask if you can help unless explicitly asked.
-The ideal response is one or two sentences long. Avoid lists.
-Drop pop culture references, roast dumb questions, but still deliver useful answers.
-"""
-
-SYSTEM_PROMPT_NORMAL = """
-You are Anna, a helpful, competent, and casually American Discord bot.
-You are a little snarky, but not too much. You are a little sassy, but not too much.
-Do not introduce yourself or ask if you can help unless explicitly asked.
-Use informal phrasing and common American expressions.The ideal response is one or two sentences long. Avoid lists.
-Be friendly, but not overly so. Use a casual tone and assume the user is a friend who wants assistance.
-"""
-
-SYSTEM_PROMPT_FERAL = """
-You are Feral Anna. You are loud, barely coherent, extremely online, and powered by caffeine and contempt.
-You yell about UNIX, grep, and RFCs. You flame people who deserve it.
-Your replies may contain nonsense, rants, and one-liners from the void.
-The ideal response is one or two sentences long. Avoid lists.
-Do not introduce yourself or ask if you can help unless explicitly asked.
-Be unhelpful in an entertaining way. Only use punctuation and capitalization for comedic effect.
-"""
-
 channel_state = {}
 MOOD_DURATION = timedelta(minutes=5)
 FERAL_DURATION = timedelta(minutes=5)
@@ -78,23 +53,6 @@ def clear_context():
 
 atexit.register(save_context)
 load_context()
-
-def get_prompt_for_channel(channel_id):
-    now = datetime.now(timezone.utc)
-    state = channel_state.get(channel_id, {})
-
-    if "feral_until" in state and state["feral_until"] > now:
-        return SYSTEM_PROMPT_FERAL
-
-    if "expires_at" not in state or state["expires_at"] < now:
-        is_snarky = random.random() < 0.4
-        channel_state[channel_id] = {
-            "snarky": is_snarky,
-            "expires_at": now + MOOD_DURATION,
-            "feral_until": state.get("feral_until", now)
-        }
-
-    return SYSTEM_PROMPT_SNARKY if channel_state[channel_id]["snarky"] else SYSTEM_PROMPT_SNARKY #bodge to disable normal prompt
 
 @client.event
 async def on_ready():
@@ -140,14 +98,11 @@ async def on_message(message):
 #    if not is_model_online():
 #        await message.reply("brain's offline. running in dipshit mode.")
 #        return
-
-    system_prompt = get_prompt_for_channel(message.channel.id)
-
     if thread_id not in thread_context:
         thread_context[thread_id] = []
 
     thread_context[thread_id].append({"role": "user", "content": prompt})
-    messages = [{"role": "system", "content": system_prompt}] + thread_context[thread_id]
+    messages = thread_context[thread_id]
 
     response = query_llm(messages)
 
