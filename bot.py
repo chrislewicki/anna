@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import os
 from message_handler import MessageHandler
 from reminder_manager import ReminderManager
+from music_manager import MusicManager
 from config import ANNA_ROLE_IDS, REMINDER_CHECK_INTERVAL_SECONDS
 
 # Configure logging
@@ -26,10 +27,12 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
+intents.voice_states = True
 
 client = discord.Client(intents=intents)
 handler = None  # Will be initialized in on_ready
 reminder_manager = None  # Will be initialized in on_ready
+music_manager = None  # Will be initialized in on_ready
 
 
 def validate_environment():
@@ -90,7 +93,7 @@ signal.signal(signal.SIGINT, handle_shutdown)
 @client.event
 async def on_ready():
     """Called when bot successfully connects to Discord."""
-    global handler, reminder_manager
+    global handler, reminder_manager, music_manager
 
     # Prevent re-initialization on reconnection
     if handler is not None:
@@ -99,7 +102,8 @@ async def on_ready():
 
     # Initialize managers (order matters - reminder_manager must exist first)
     reminder_manager = ReminderManager()
-    handler = MessageHandler(client.user.id, ANNA_ROLE_IDS, reminder_manager)
+    music_manager = MusicManager()
+    handler = MessageHandler(client.user.id, ANNA_ROLE_IDS, reminder_manager, music_manager)
     logger.info(f"Logged in as {client.user}")
 
     # Start reminder background task
