@@ -1,4 +1,4 @@
-# anna
-Jag kanner en bot, hon heter Anna, Anna heter hon
+# Anna Bot (VPS Side)
 
-Technically a distributed architecture! So that's cool.
+This is the always-online scaffold for Anna, the Discord bot with a part-time brain.
+It handles Discord interaction and forwards requests to the local model when it's online.
