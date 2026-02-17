@@ -46,6 +46,9 @@ LLM_TEMPERATURE = 0.7
 LLM_MAX_TOKENS = 8124
 """Maximum tokens in LLM response."""
 
+LLM_SYSTEM_PROMPT = os.getenv("LLM_SYSTEM_PROMPT", "")
+"""Default system prompt for all providers. Can be overridden per provider."""
+
 # DigitalOcean GenAI provider configuration
 DIGITALOCEAN_MODEL_URL = os.getenv(
     "DIGITALOCEAN_MODEL_URL",
@@ -59,12 +62,18 @@ DIGITALOCEAN_AUTH_TOKEN = os.getenv("DIGITALOCEAN_AUTH_TOKEN", os.getenv("AUTH_T
 DIGITALOCEAN_MODEL = os.getenv("DIGITALOCEAN_MODEL", "mistral")
 """Model name to use with DigitalOcean GenAI."""
 
+DIGITALOCEAN_SYSTEM_PROMPT = os.getenv("DIGITALOCEAN_SYSTEM_PROMPT", "")
+"""System prompt for DigitalOcean provider. Overrides LLM_SYSTEM_PROMPT if set."""
+
 # Ollama local provider configuration
 OLLAMA_LOCAL_URL = os.getenv("OLLAMA_LOCAL_URL", "http://localhost:11434")
 """Local ollama instance URL. Requires network_mode: host in docker-compose.yml"""
 
-OLLAMA_LOCAL_MODEL = os.getenv("OLLAMA_LOCAL_MODEL", "mistral")
+OLLAMA_LOCAL_MODEL = os.getenv("OLLAMA_LOCAL_MODEL", "tinyllama")
 """Model name to use with local ollama."""
+
+OLLAMA_LOCAL_SYSTEM_PROMPT = os.getenv("OLLAMA_LOCAL_SYSTEM_PROMPT", "")
+"""System prompt for local ollama provider. Overrides LLM_SYSTEM_PROMPT if set."""
 
 # Ollama Tailscale provider configuration
 OLLAMA_TAILSCALE_URL = os.getenv("OLLAMA_TAILSCALE_URL", "")
@@ -72,6 +81,9 @@ OLLAMA_TAILSCALE_URL = os.getenv("OLLAMA_TAILSCALE_URL", "")
 
 OLLAMA_TAILSCALE_MODEL = os.getenv("OLLAMA_TAILSCALE_MODEL", "mistral")
 """Model name to use with Tailscale ollama."""
+
+OLLAMA_TAILSCALE_SYSTEM_PROMPT = os.getenv("OLLAMA_TAILSCALE_SYSTEM_PROMPT", "")
+"""System prompt for Tailscale ollama provider. Overrides LLM_SYSTEM_PROMPT if set."""
 
 # Special commands that trigger context reset
 SPECIAL_RESET_COMMANDS = [

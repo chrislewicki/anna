@@ -1,10 +1,34 @@
 import requests
 import json
 import logging
-from config import LLM_TEMPERATURE, LLM_MAX_TOKENS
+from config import (
+    LLM_TEMPERATURE, LLM_MAX_TOKENS, LLM_PROVIDER, LLM_SYSTEM_PROMPT,
+    DIGITALOCEAN_SYSTEM_PROMPT, OLLAMA_LOCAL_SYSTEM_PROMPT, OLLAMA_TAILSCALE_SYSTEM_PROMPT
+)
 from llm_providers import get_provider
 
 logger = logging.getLogger(__name__)
+
+
+def get_system_prompt() -> str:
+    """
+    Get the appropriate system prompt based on current provider.
+
+    Returns:
+        System prompt string, or empty string if none configured
+    """
+    provider_name = LLM_PROVIDER.lower()
+
+    # Check for provider-specific prompt first
+    if provider_name == "digitalocean" and DIGITALOCEAN_SYSTEM_PROMPT:
+        return DIGITALOCEAN_SYSTEM_PROMPT
+    elif provider_name == "ollama-local" and OLLAMA_LOCAL_SYSTEM_PROMPT:
+        return OLLAMA_LOCAL_SYSTEM_PROMPT
+    elif provider_name == "ollama-tailscale" and OLLAMA_TAILSCALE_SYSTEM_PROMPT:
+        return OLLAMA_TAILSCALE_SYSTEM_PROMPT
+
+    # Fall back to global system prompt
+    return LLM_SYSTEM_PROMPT
 
 
 def send_payload(payload):
@@ -34,6 +58,12 @@ def query_llm(messages):
     Returns:
         String response from LLM, or None if request failed or response malformed
     """
+    # Prepend system prompt if configured
+    system_prompt = get_system_prompt()
+    if system_prompt:
+        messages = [{"role": "system", "content": system_prompt}] + messages
+        logger.debug(f"Added system prompt ({len(system_prompt)} chars)")
+
     resp = send_payload({
         "messages": messages,
         "temperature": LLM_TEMPERATURE,
@@ -87,6 +117,12 @@ def query_llm_with_context(messages, context):
     Returns:
         Tuple of (content string, context dict), or (None, None) if request failed
     """
+    # Prepend system prompt if configured
+    system_prompt = get_system_prompt()
+    if system_prompt:
+        messages = [{"role": "system", "content": system_prompt}] + messages
+        logger.debug(f"Added system prompt ({len(system_prompt)} chars)")
+
     resp = send_payload({
         "messages": messages,
         "context": context,
