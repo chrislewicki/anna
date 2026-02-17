@@ -89,6 +89,7 @@ class OllamaLocalProvider(LLMProvider):
             }
 
             logger.debug(f"Sending request to local ollama: {self.url}")
+            logger.debug(f"Payload: {payload}")
             response = requests.post(
                 self.url,
                 json=payload,
@@ -97,6 +98,8 @@ class OllamaLocalProvider(LLMProvider):
             )
 
             response.raise_for_status()
+            logger.debug(f"Response status: {response.status_code}")
+            logger.debug(f"Response body: {response.text[:500]}")  # Log first 500 chars
             return response
 
         except requests.exceptions.ConnectionError:
