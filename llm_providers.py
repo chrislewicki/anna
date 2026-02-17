@@ -74,7 +74,7 @@ class OllamaLocalProvider(LLMProvider):
 
     def __init__(self):
         """Initialize local ollama provider."""
-        self.url = f"{config.OLLAMA_LOCAL_URL}/api/chat"
+        self.url = f"{config.OLLAMA_LOCAL_URL}/v1/chat/completions"
         self.model = config.OLLAMA_LOCAL_MODEL
         self.timeout = config.LLM_TIMEOUT_SECONDS
 
@@ -119,7 +119,7 @@ class OllamaTailscaleProvider(LLMProvider):
     def __init__(self):
         """Initialize Tailscale ollama provider."""
         self.base_url = config.OLLAMA_TAILSCALE_URL
-        self.url = f"{self.base_url}/api/chat"
+        self.url = f"{self.base_url}/v1/chat/completions"
         self.model = config.OLLAMA_TAILSCALE_MODEL
         self.timeout = config.LLM_TIMEOUT_SECONDS
 
