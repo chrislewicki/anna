@@ -1,48 +1,27 @@
 import requests
 import json
-import os
 import logging
-from config import LLM_TIMEOUT_SECONDS, LLM_TEMPERATURE, LLM_MAX_TOKENS
+from config import LLM_TEMPERATURE, LLM_MAX_TOKENS
+from llm_providers import get_provider
 
 logger = logging.getLogger(__name__)
-
-# This is a private endpoint, don't even try
-MODEL_URL = "https://ppjmbaf3sh6p5tx2iaz53gmr.agents.do-ai.run/api/v1/chat/completions"
-AUTH_TOKEN = os.getenv("AUTH_TOKEN")
 
 
 def send_payload(payload):
     """
-    Send a payload to the LLM API.
+    Send a payload to the configured LLM provider.
 
     Args:
-        payload: Dictionary containing model, messages, and other parameters
+        payload: Dictionary containing messages and other parameters
 
     Returns:
         Response object if successful, None otherwise
     """
-    try:
-        logger.debug(f"Sending payload to model with {len(payload.get('messages', []))} messages")
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {AUTH_TOKEN}"
-        }
-        resp = requests.post(MODEL_URL, headers=headers, json=payload, timeout=LLM_TIMEOUT_SECONDS)
-        logger.debug(f"Response code: {resp.status_code}")
+    logger.debug(f"Sending payload to model with {len(payload.get('messages', []))} messages")
 
-        if resp.status_code == 200:
-            logger.info("Successfully received response from LLM")
-            return resp
-        else:
-            logger.warning(f"LLM returned non-200 status: {resp.status_code}")
-            logger.debug(f"Response body: {resp.text}")
-            return None
-    except requests.exceptions.Timeout:
-        logger.error(f"LLM request timed out after {LLM_TIMEOUT_SECONDS}s")
-        return None
-    except Exception as e:
-        logger.error(f"LLM request failed: {e}", exc_info=True)
-        return None
+    # Get configured provider and send request
+    provider = get_provider()
+    return provider.send_request(payload)
 
 
 def query_llm(messages):
@@ -56,7 +35,6 @@ def query_llm(messages):
         String response from LLM, or None if request failed or response malformed
     """
     resp = send_payload({
-        "model": "mistral",
         "messages": messages,
         "temperature": LLM_TEMPERATURE,
         "max_tokens": LLM_MAX_TOKENS
@@ -110,7 +88,6 @@ def query_llm_with_context(messages, context):
         Tuple of (content string, context dict), or (None, None) if request failed
     """
     resp = send_payload({
-        "model": "mistral",
         "messages": messages,
         "context": context,
         "temperature": LLM_TEMPERATURE,

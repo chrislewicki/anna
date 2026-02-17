@@ -30,6 +30,13 @@ REMINDER_MAX_TIME_SECONDS = 365 * 86400  # 1 year
 """Maximum allowed reminder time (1 year)."""
 
 # LLM/Model settings
+import os
+
+# Provider selection
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "digitalocean")
+"""LLM provider to use. Options: digitalocean, ollama-local, ollama-tailscale"""
+
+# Shared LLM settings
 LLM_TIMEOUT_SECONDS = 20
 """Timeout for LLM API requests."""
 
@@ -38,6 +45,33 @@ LLM_TEMPERATURE = 0.7
 
 LLM_MAX_TOKENS = 8124
 """Maximum tokens in LLM response."""
+
+# DigitalOcean GenAI provider configuration
+DIGITALOCEAN_MODEL_URL = os.getenv(
+    "DIGITALOCEAN_MODEL_URL",
+    "https://ppjmbaf3sh6p5tx2iaz53gmr.agents.do-ai.run/api/v1/chat/completions"
+)
+"""DigitalOcean GenAI Platform endpoint URL."""
+
+DIGITALOCEAN_AUTH_TOKEN = os.getenv("DIGITALOCEAN_AUTH_TOKEN", os.getenv("AUTH_TOKEN", ""))
+"""DigitalOcean API authentication token. Falls back to AUTH_TOKEN for backward compatibility."""
+
+DIGITALOCEAN_MODEL = os.getenv("DIGITALOCEAN_MODEL", "mistral")
+"""Model name to use with DigitalOcean GenAI."""
+
+# Ollama local provider configuration
+OLLAMA_LOCAL_URL = os.getenv("OLLAMA_LOCAL_URL", "http://localhost:11434")
+"""Local ollama instance URL. Requires network_mode: host in docker-compose.yml"""
+
+OLLAMA_LOCAL_MODEL = os.getenv("OLLAMA_LOCAL_MODEL", "mistral")
+"""Model name to use with local ollama."""
+
+# Ollama Tailscale provider configuration
+OLLAMA_TAILSCALE_URL = os.getenv("OLLAMA_TAILSCALE_URL", "")
+"""Tailscale ollama instance URL (e.g., http://hostname.tail-scale.ts.net:11434)"""
+
+OLLAMA_TAILSCALE_MODEL = os.getenv("OLLAMA_TAILSCALE_MODEL", "mistral")
+"""Model name to use with Tailscale ollama."""
 
 # Special commands that trigger context reset
 SPECIAL_RESET_COMMANDS = [
