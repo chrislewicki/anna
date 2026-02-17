@@ -72,7 +72,10 @@ OLLAMA_LOCAL_URL = os.getenv("OLLAMA_LOCAL_URL", "http://localhost:11434")
 OLLAMA_LOCAL_MODEL = os.getenv("OLLAMA_LOCAL_MODEL", "tinyllama")
 """Model name to use with local ollama."""
 
-OLLAMA_LOCAL_SYSTEM_PROMPT = os.getenv("OLLAMA_LOCAL_SYSTEM_PROMPT", "")
+OLLAMA_LOCAL_SYSTEM_PROMPT = os.getenv(
+    "OLLAMA_LOCAL_SYSTEM_PROMPT",
+    "You are Anna, a helpful Discord bot. Respond concisely and directly to questions."
+)
 """System prompt for local ollama provider. Overrides LLM_SYSTEM_PROMPT if set."""
 
 # Ollama Tailscale provider configuration

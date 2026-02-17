@@ -101,13 +101,6 @@ class ThreadContextManager:
         else:
             self.contexts = {}
             logger.info("Cleared all thread contexts")
-            try:
-                os.remove(self.context_file)
-                logger.debug(f"Deleted context file {self.context_file}")
-            except FileNotFoundError:
-                pass
-            except Exception as e:
-                logger.warning(f"Failed to delete context file: {e}")
 
         self.dirty = True
         self.save()
