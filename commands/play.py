@@ -2,6 +2,7 @@
 
 from typing import TYPE_CHECKING
 import logging
+from streaming_resolver import is_streaming_url, resolve_streaming_url
 
 if TYPE_CHECKING:
     from message_handler import CommandContext
@@ -32,8 +33,16 @@ async def play(ctx: 'CommandContext', args: str) -> str:
     query = args.strip()
 
     # Detect if it's a URL or search terms
-    # If it doesn't look like a URL, prepend ytsearch1: to search YouTube for first result
     is_url = query.startswith(('http://', 'https://', 'www.')) or '/' in query
+
+    # Resolve streaming service links (Spotify, Apple Music, Tidal, etc.)
+    if is_url and is_streaming_url(query):
+        try:
+            query = resolve_streaming_url(query)
+            logger.info(f"Resolved streaming URL to: {query}")
+            is_url = query.startswith(('http://', 'https://'))
+        except RuntimeError as e:
+            return str(e)
 
     if not is_url:
         # Search YouTube for first result
