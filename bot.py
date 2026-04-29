@@ -42,21 +42,8 @@ def validate_environment():
     Raises:
         ValueError: If any required environment variables are missing
     """
-    required = {
-        "DISCORD_TOKEN": "Discord bot token",
-        "AUTH_TOKEN": "LLM API authentication token"
-    }
-
-    missing = []
-    for var, description in required.items():
-        if not os.getenv(var):
-            missing.append(f"{var} ({description})")
-
-    if missing:
-        error_msg = "Missing required environment variables:\n" + "\n".join(f"  - {m}" for m in missing)
-        logger.error(error_msg)
-        raise ValueError(error_msg)
-
+    if not os.getenv("DISCORD_TOKEN"):
+        raise ValueError("DISCORD_TOKEN environment variable is required")
     logger.info("Environment validation passed")
 
 
@@ -76,10 +63,6 @@ def handle_shutdown(signum, frame):
     if reminder_manager:
         logger.info("Saving reminders...")
         reminder_manager.save()
-
-    if handler and handler.context_manager:
-        logger.info("Saving context...")
-        handler.context_manager.save()
 
     logger.info("Shutdown complete")
     client.loop.stop()
@@ -141,8 +124,6 @@ async def on_close():
     logger.info("Bot disconnecting, saving state...")
     if reminder_manager:
         reminder_manager.save()
-    if handler:
-        handler.context_manager.save()
 
 
 async def check_reminders():

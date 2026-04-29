@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Optional, List
-from config import SPECIAL_RESET_COMMANDS, PASSIVE_MENTION_TRIGGERS
+from config import PASSIVE_MENTION_TRIGGERS
 
 
 @dataclass
@@ -12,8 +12,6 @@ class ParsedMessage:
     is_bot_mentioned: bool
     is_reply_to_bot: bool
     is_passive_mention: bool
-    is_special_command: bool
-    special_command_type: Optional[str]
     is_command: bool
     clean_prompt: str
     original_content: str
@@ -40,10 +38,6 @@ def parse_message(
     original_content = content
     is_reply_to_bot = referenced_message_author_id == bot_user_id if referenced_message_author_id else False
 
-    # Check for special commands (context reset)
-    is_special_command = content.lower().strip() in SPECIAL_RESET_COMMANDS
-    special_command_type = "reset_context" if is_special_command else None
-
     # Check for direct mentions (user or role)
     is_user_mentioned = f"<@{bot_user_id}>" in content or f"<@!{bot_user_id}>" in content
     is_role_mentioned = any(f"<@&{role_id}>" in content for role_id in bot_role_ids)
@@ -60,15 +54,13 @@ def parse_message(
         clean_prompt = clean_prompt.replace(f"<@&{role_id}>", "")
     clean_prompt = clean_prompt.strip()
 
-    # Check if this is a command (has > after mention)
-    is_command = is_bot_mentioned and clean_prompt.startswith(">")
+    # Any mention with text is a command
+    is_command = is_bot_mentioned and bool(clean_prompt)
 
     return ParsedMessage(
         is_bot_mentioned=is_bot_mentioned,
         is_reply_to_bot=is_reply_to_bot,
         is_passive_mention=is_passive_mention,
-        is_special_command=is_special_command,
-        special_command_type=special_command_type,
         is_command=is_command,
         clean_prompt=clean_prompt,
         original_content=original_content

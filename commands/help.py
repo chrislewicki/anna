@@ -20,4 +20,4 @@ async def help_cmd(ctx: 'CommandContext', args: str) -> str:
     # Import inside function to avoid circular import
     from . import registry
     cmds = ", ".join(sorted(registry.keys()))
-    return f"commands: {cmds} - prefix with `>` (e.g., `>ping`)"
+    return f"commands: {cmds} (e.g., `@Anna ping`)"
