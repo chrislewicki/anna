@@ -10,6 +10,7 @@ from message_handler import MessageHandler
 from reminder_manager import ReminderManager
 from music_manager import MusicManager
 from config import ANNA_ROLE_IDS, REMINDER_CHECK_INTERVAL_SECONDS
+import state  # noqa: F401 — imported eagerly so START_TS is captured at boot
 
 # Configure logging
 logging.basicConfig(
