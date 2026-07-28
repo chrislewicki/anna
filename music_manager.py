@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import random
 from typing import Optional, Dict
 from collections import deque
 from dataclasses import dataclass
@@ -346,6 +347,28 @@ class MusicManager:
             asyncio.run_coroutine_threadsafe(self._play_next(guild_id), self.loop)
         else:
             logger.error(f"No event loop reference, cannot auto-play next track in guild {guild_id}")
+
+    def shuffle_queue(self, guild_id: int) -> int:
+        """
+        Shuffle the queued tracks (does not affect the currently playing track).
+
+        Args:
+            guild_id: Guild ID
+
+        Returns:
+            Number of tracks in the queue after shuffling
+        """
+        queue = self.queues.get(guild_id)
+        if not queue:
+            return 0
+
+        tracks = list(queue)
+        random.shuffle(tracks)
+        queue.clear()
+        queue.extend(tracks)
+
+        logger.info(f"Shuffled {len(tracks)} queued tracks in guild {guild_id}")
+        return len(tracks)
 
     def pause(self, guild_id: int) -> bool:
         """Pause playback."""

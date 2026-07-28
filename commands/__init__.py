@@ -15,6 +15,7 @@ from .queue import queue
 from .skip import skip
 from .clear import clear
 from .nowplaying import nowplaying
+from .shuffle import shuffle
 
 registry: Dict[str, Callable[..., Awaitable[str]]] = {
     "ping": ping,
@@ -35,4 +36,5 @@ registry: Dict[str, Callable[..., Awaitable[str]]] = {
     "clear": clear,
     "nowplaying": nowplaying,
     "np": nowplaying,
+    "shuffle": shuffle,
 }

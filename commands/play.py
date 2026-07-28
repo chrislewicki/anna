@@ -112,7 +112,4 @@ async def _play_playlist(ctx: 'CommandContext', url: str) -> str:
     if not success:
         return message
 
-    response = f"queued {len(playlist.tracks)} tracks from **{playlist.name}**"
-    if playlist.truncated:
-        response += f" (capped at {len(playlist.tracks)})"
-    return response
+    return f"queued {len(playlist.tracks)} tracks from **{playlist.name}**"

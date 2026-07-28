@@ -12,9 +12,6 @@ import yt_dlp
 
 logger = logging.getLogger(__name__)
 
-# Safety cap so a 5000-track playlist doesn't blow up the queue
-MAX_PLAYLIST_TRACKS = 100
-
 REQUEST_HEADERS = {
     'User-Agent': (
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
@@ -42,7 +39,6 @@ class ResolvedPlaylist:
     """An ordered list of tracks resolved from a playlist URL."""
     name: str
     tracks: List[PlaylistTrack] = field(default_factory=list)
-    truncated: bool = False
 
 
 def _netloc(url: str) -> str:
@@ -96,10 +92,6 @@ def resolve_playlist(url: str) -> ResolvedPlaylist:
 
     if not playlist.tracks:
         raise RuntimeError("couldn't find any tracks in that playlist")
-
-    if len(playlist.tracks) > MAX_PLAYLIST_TRACKS:
-        playlist.tracks = playlist.tracks[:MAX_PLAYLIST_TRACKS]
-        playlist.truncated = True
 
     logger.info(f"Resolved playlist '{playlist.name}': {len(playlist.tracks)} tracks")
     return playlist
@@ -161,6 +153,51 @@ def _resolve_apple_music(url: str) -> ResolvedPlaylist:
     """Resolve an Apple Music playlist/album from its embedded page JSON."""
     html = _fetch_page(url)
 
+    # Primary: the serialized-server-data blob. It's present on all page
+    # types (user playlists have no ld+json at all) and carries ordered
+    # title + artist per track.
+    playlist = _parse_apple_server_data(html)
+    if playlist is not None:
+        return playlist
+
+    return _parse_apple_ldjson(html)
+
+
+def _parse_apple_server_data(html: str):
+    """Parse tracks from Apple's serialized-server-data JSON, or None if the shape doesn't match."""
+    m = re.search(r'<script[^>]*id="serialized-server-data"[^>]*>(.*?)</script>', html, re.S)
+    if not m:
+        return None
+
+    try:
+        page = json.loads(m.group(1))['data'][0]['data']
+        sections = page['sections']
+    except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+        return None
+
+    name = 'Apple Music playlist'
+    tracks = []
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        items = section.get('items') or []
+        kind = section.get('itemKind')
+        if kind == 'containerDetailHeaderLockup' and items:
+            name = items[0].get('title') or name
+        elif kind == 'trackLockup':
+            for item in items:
+                title = item.get('title')
+                if not title:
+                    continue
+                tracks.append(_search_track(title, item.get('artistName', '')))
+
+    if not tracks:
+        return None
+    return ResolvedPlaylist(name=name, tracks=tracks)
+
+
+def _parse_apple_ldjson(html: str) -> ResolvedPlaylist:
+    """Fallback: parse tracks from the page's ld+json (absent on user playlists)."""
     m = re.search(r'<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>', html, re.S)
     if not m:
         raise RuntimeError("couldn't read the apple music page (layout may have changed)")
