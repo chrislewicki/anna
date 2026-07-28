@@ -1,8 +1,10 @@
 """Play music command."""
 
 from typing import TYPE_CHECKING
+import asyncio
 import logging
 from streaming_resolver import is_streaming_url, resolve_streaming_url
+from playlist_resolver import is_playlist_url, resolve_playlist
 
 if TYPE_CHECKING:
     from message_handler import CommandContext
@@ -12,11 +14,12 @@ logger = logging.getLogger(__name__)
 
 async def play(ctx: 'CommandContext', args: str) -> str:
     """
-    Play audio from a URL or search query.
+    Play audio from a URL, playlist URL, or search query.
 
     Usage: @Anna >play <url or search terms>
     Examples:
         @Anna >play https://www.youtube.com/watch?v=dQw4w9WgXcQ
+        @Anna >play https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M
         @Anna >play aespa whiplash
         @Anna >play lofi hip hop beats
 
@@ -34,6 +37,10 @@ async def play(ctx: 'CommandContext', args: str) -> str:
 
     # Detect if it's a URL or search terms
     is_url = query.startswith(('http://', 'https://', 'www.')) or '/' in query
+
+    # Playlist links (Spotify, Apple Music, YouTube/YT Music) queue every track
+    if is_url and is_playlist_url(query):
+        return await _play_playlist(ctx, query)
 
     # Resolve streaming service links (Spotify, Apple Music, Tidal, etc.)
     if is_url and is_streaming_url(query):
@@ -72,3 +79,40 @@ async def play(ctx: 'CommandContext', args: str) -> str:
     )
 
     return message
+
+
+async def _play_playlist(ctx: 'CommandContext', url: str) -> str:
+    """Resolve a playlist URL and queue all of its tracks in order."""
+    guild_id = ctx.message.guild.id
+
+    # Join the user's voice channel if not already connected
+    if not ctx.music_manager.get_voice_client(guild_id):
+        if not ctx.message.author.voice:
+            return "i'm not in a voice channel. use `>join` first or join a voice channel yourself"
+
+        try:
+            await ctx.music_manager.join_channel(ctx.message.author.voice.channel)
+        except Exception as e:
+            logger.error(f"Auto-join failed: {e}")
+            return "failed to join your voice channel"
+
+    # Resolution hits the network and can take a few seconds for big
+    # playlists, so run it off the event loop
+    try:
+        playlist = await asyncio.to_thread(resolve_playlist, url)
+    except RuntimeError as e:
+        return str(e)
+
+    success, message = await ctx.music_manager.add_playlist_to_queue(
+        guild_id,
+        playlist.tracks,
+        ctx.message.author.id
+    )
+
+    if not success:
+        return message
+
+    response = f"queued {len(playlist.tracks)} tracks from **{playlist.name}**"
+    if playlist.truncated:
+        response += f" (capped at {len(playlist.tracks)})"
+    return response

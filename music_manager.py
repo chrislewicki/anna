@@ -180,6 +180,49 @@ class MusicManager:
             logger.error(f"Failed to add to queue: {e}", exc_info=True)
             return False, f"failed to add to queue: {str(e)}"
 
+    async def add_playlist_to_queue(self, guild_id: int, tracks, requester_id: int) -> tuple[bool, str]:
+        """
+        Add multiple pre-resolved tracks to the queue at once.
+
+        Unlike add_to_queue(), this does NOT extract info per track up front —
+        titles come from the playlist metadata and yt-dlp resolution happens
+        lazily in _play_next(), so queueing a large playlist is instant.
+
+        Args:
+            guild_id: Guild ID
+            tracks: Iterable of playlist_resolver.PlaylistTrack
+            requester_id: Discord user ID who requested
+
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        voice_client = self.get_voice_client(guild_id)
+        if not voice_client:
+            return False, "not connected to voice channel"
+
+        if guild_id not in self.queues:
+            self.queues[guild_id] = deque()
+
+        count = 0
+        for track in tracks:
+            self.queues[guild_id].append(QueuedTrack(
+                url=track.query,
+                title=track.title,
+                requester_id=requester_id
+            ))
+            count += 1
+
+        if count == 0:
+            return False, "playlist had no playable tracks"
+
+        logger.info(f"Bulk-queued {count} tracks in guild {guild_id}")
+
+        # If nothing is playing, start playing
+        if not voice_client.is_playing() and not voice_client.is_paused():
+            await self._play_next(guild_id)
+
+        return True, f"queued {count} track(s)"
+
     async def _play_next(self, guild_id: int) -> bool:
         """
         Play the next track in queue.
@@ -208,6 +251,14 @@ class MusicManager:
             # Extract audio URL (need fresh URL each time, they expire)
             with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
                 info = ydl.extract_info(track.url, download=False)
+
+                # Search queries (ytsearch1:) return a results wrapper
+                if 'entries' in info:
+                    entries = [e for e in info['entries'] if e]
+                    if not entries:
+                        raise RuntimeError(f"no search results for: {track.title}")
+                    info = entries[0]
+
                 audio_url = info['url']
 
             # Create audio source
