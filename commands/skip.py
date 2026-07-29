@@ -10,9 +10,9 @@ async def skip(ctx: 'CommandContext', args: str) -> str:
     """
     Skip the currently playing track.
 
-    Usage: @Anna >skip
+    Usage: @Anna skip
 
-    Skipping always moves to the next track, even when `>loop track` is on.
+    Skipping always moves to the next track, even when `@Anna loop track` is on.
 
     Args:
         ctx: Command context

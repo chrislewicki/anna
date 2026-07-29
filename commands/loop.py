@@ -11,12 +11,12 @@ async def loop(ctx: 'CommandContext', args: str) -> str:
     """
     Set or show the loop mode.
 
-    Usage: @Anna >loop [track|queue|off]
+    Usage: @Anna loop [track|queue|off]
         track - repeat the current track
         queue - re-queue each track after it plays
         off   - play through the queue once (default)
 
-    With no argument, shows the current mode. >skip always moves on,
+    With no argument, shows the current mode. Skip always moves on,
     even in track mode.
 
     Args:
@@ -33,7 +33,7 @@ async def loop(ctx: 'CommandContext', args: str) -> str:
         return f"loop mode: **{ctx.music_manager.get_loop_mode(guild_id)}**"
 
     if mode not in LOOP_MODES:
-        return "usage: `>loop track|queue|off`"
+        return "usage: `@Anna loop track|queue|off`"
 
     ctx.music_manager.set_loop_mode(guild_id, mode)
     if mode == 'off':

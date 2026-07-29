@@ -11,10 +11,10 @@ async def help_cmd(ctx: 'CommandContext', args: str) -> str:
     """
     Display available commands, or detailed help for one command.
 
-    Usage: @Anna >help [command]
+    Usage: @Anna help [command]
     Examples:
-        @Anna >help
-        @Anna >help play
+        @Anna help
+        @Anna help play
 
     Args:
         ctx: Command context

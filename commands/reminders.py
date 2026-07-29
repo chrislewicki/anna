@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 
 def user_reminders_sorted(ctx: 'CommandContext'):
-    """The invoking user's pending reminders, soonest first (shared with >cancel)."""
+    """The invoking user's pending reminders, soonest first (shared with the cancel command)."""
     pending = ctx.reminder_manager.get_user_reminders(ctx.message.author.id)
     return sorted(pending, key=lambda r: r.due_time)
 
@@ -18,7 +18,7 @@ async def reminders(ctx: 'CommandContext', args: str) -> str:
     """
     List your pending reminders.
 
-    Usage: @Anna >reminders
+    Usage: @Anna reminders
 
     Args:
         ctx: Command context
@@ -36,5 +36,5 @@ async def reminders(ctx: 'CommandContext', args: str) -> str:
     for i, reminder in enumerate(pending, 1):
         remaining = format_duration_long(max(0, int(reminder.due_time - now)))
         lines.append(f"{i}. in {remaining}: {reminder.message}")
-    lines.append("cancel one with `>cancel <number>`")
+    lines.append("cancel one with `@Anna cancel <number>`")
     return "\n".join(lines)

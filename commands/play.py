@@ -24,7 +24,7 @@ async def _ensure_voice(ctx: 'CommandContext') -> Optional[str]:
         return None
 
     if not ctx.message.author.voice:
-        return "i'm not in a voice channel. use `>join` first or join a voice channel yourself"
+        return "i'm not in a voice channel. use `@Anna join` first or join a voice channel yourself"
 
     try:
         await ctx.music_manager.join_channel(ctx.message.author.voice.channel)
@@ -62,12 +62,12 @@ async def play(ctx: 'CommandContext', args: str) -> str:
     """
     Play audio from a URL, playlist URL, or search query.
 
-    Usage: @Anna >play <url or search terms>
+    Usage: @Anna play <url or search terms>
     Examples:
-        @Anna >play https://www.youtube.com/watch?v=dQw4w9WgXcQ
-        @Anna >play https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M
-        @Anna >play aespa whiplash
-        @Anna >play lofi hip hop beats
+        @Anna play https://www.youtube.com/watch?v=dQw4w9WgXcQ
+        @Anna play https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M
+        @Anna play aespa whiplash
+        @Anna play lofi hip hop beats
 
     Args:
         ctx: Command context
@@ -77,7 +77,7 @@ async def play(ctx: 'CommandContext', args: str) -> str:
         Status message
     """
     if not args.strip():
-        return "usage: `>play <url or search terms>`"
+        return "usage: `@Anna play <url or search terms>`"
 
     query = args.strip()
     is_url = query.startswith(('http://', 'https://', 'www.')) or '/' in query

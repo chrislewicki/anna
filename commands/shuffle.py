@@ -10,7 +10,7 @@ async def shuffle(ctx: 'CommandContext', args: str) -> str:
     """
     Shuffle the current music queue.
 
-    Usage: @Anna >shuffle
+    Usage: @Anna shuffle
 
     Args:
         ctx: Command context

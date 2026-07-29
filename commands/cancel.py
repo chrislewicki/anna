@@ -11,21 +11,21 @@ async def cancel(ctx: 'CommandContext', args: str) -> str:
     """
     Cancel one of your pending reminders.
 
-    Usage: @Anna >cancel <number|all>
+    Usage: @Anna cancel <number|all>
     Examples:
-        @Anna >cancel 2     (cancel reminder 2 from >reminders)
-        @Anna >cancel all   (cancel everything)
+        @Anna cancel 2     (cancel reminder 2 from the reminders list)
+        @Anna cancel all   (cancel everything)
 
     Args:
         ctx: Command context
-        args: Reminder number (from >reminders) or "all"
+        args: Reminder number (from the reminders list) or "all"
 
     Returns:
         Status message
     """
     arg = args.strip().lower()
     if not arg:
-        return "usage: `>cancel <number|all>` (see numbers with `>reminders`)"
+        return "usage: `@Anna cancel <number|all>` (see numbers with `@Anna reminders`)"
 
     pending = user_reminders_sorted(ctx)
     if not pending:
@@ -39,10 +39,10 @@ async def cancel(ctx: 'CommandContext', args: str) -> str:
     try:
         number = int(arg)
     except ValueError:
-        return "usage: `>cancel <number|all>` (see numbers with `>reminders`)"
+        return "usage: `@Anna cancel <number|all>` (see numbers with `@Anna reminders`)"
 
     if not (1 <= number <= len(pending)):
-        return f"no reminder number {number} — you have {len(pending)} (see `>reminders`)"
+        return f"no reminder number {number} — you have {len(pending)} (see `@Anna reminders`)"
 
     reminder = pending[number - 1]
     ctx.reminder_manager.remove_reminder(reminder.id)

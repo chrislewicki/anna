@@ -12,11 +12,11 @@ async def volume(ctx: 'CommandContext', args: str) -> str:
     """
     Set or show the playback volume.
 
-    Usage: @Anna >volume [0-200]
+    Usage: @Anna volume [0-200]
     Examples:
-        @Anna >volume       (show current volume)
-        @Anna >volume 50    (half volume)
-        @Anna >volume 100   (normal)
+        @Anna volume       (show current volume)
+        @Anna volume 50    (half volume)
+        @Anna volume 100   (normal)
 
     Applies immediately to the current track and persists for future tracks.
 
@@ -36,7 +36,7 @@ async def volume(ctx: 'CommandContext', args: str) -> str:
     try:
         percent = int(args.strip().rstrip('%'))
     except ValueError:
-        return "usage: `>volume <0-200>`"
+        return "usage: `@Anna volume <0-200>`"
 
     if not (0 <= percent <= MAX_VOLUME_PERCENT):
         return f"volume must be between 0 and {MAX_VOLUME_PERCENT}"

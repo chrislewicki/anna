@@ -13,7 +13,7 @@ async def join(ctx: 'CommandContext', args: str) -> str:
     """
     Join the user's current voice channel.
 
-    Usage: @Anna >join
+    Usage: @Anna join
 
     Args:
         ctx: Command context

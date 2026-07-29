@@ -15,10 +15,10 @@ async def playnext(ctx: 'CommandContext', args: str) -> str:
     """
     Queue a track to play next, ahead of everything else in the queue.
 
-    Usage: @Anna >playnext <url or search terms>
+    Usage: @Anna playnext <url or search terms>
     Examples:
-        @Anna >playnext https://www.youtube.com/watch?v=dQw4w9WgXcQ
-        @Anna >playnext aespa whiplash
+        @Anna playnext https://www.youtube.com/watch?v=dQw4w9WgXcQ
+        @Anna playnext aespa whiplash
 
     Args:
         ctx: Command context
@@ -28,12 +28,12 @@ async def playnext(ctx: 'CommandContext', args: str) -> str:
         Status message
     """
     if not args.strip():
-        return "usage: `>playnext <url or search terms>`"
+        return "usage: `@Anna playnext <url or search terms>`"
 
     query = args.strip()
 
     if is_playlist_url(query):
-        return "playlists can't be front-queued — use `>play` for those"
+        return "playlists can't be front-queued — use `@Anna play` for those"
 
     try:
         query = _resolve_single_query(query)

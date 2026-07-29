@@ -10,10 +10,10 @@ async def remove(ctx: 'CommandContext', args: str) -> str:
     """
     Remove a track from the queue by its position.
 
-    Usage: @Anna >remove <position>
-    Example: @Anna >remove 3
+    Usage: @Anna remove <position>
+    Example: @Anna remove 3
 
-    Positions match the numbers shown by >queue.
+    Positions match the numbers shown by the queue command.
 
     Args:
         ctx: Command context
@@ -25,10 +25,10 @@ async def remove(ctx: 'CommandContext', args: str) -> str:
     try:
         position = int(args.strip())
     except ValueError:
-        return "usage: `>remove <position>` (see positions with `>queue`)"
+        return "usage: `@Anna remove <position>` (see positions with `@Anna queue`)"
 
     track = ctx.music_manager.remove_from_queue(ctx.message.guild.id, position)
     if track is None:
-        return f"no track at position {position} — check `>queue`"
+        return f"no track at position {position} — check `@Anna queue`"
 
     return f"removed: {track.title}"

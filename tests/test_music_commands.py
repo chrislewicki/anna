@@ -42,7 +42,7 @@ def ctx(mm):
 def test_remove_command(mm, ctx):
     mm.queues[1] = deque([track("a"), track("b")])
     assert asyncio.run(remove(ctx, "2")) == "removed: b"
-    assert asyncio.run(remove(ctx, "9")) == "no track at position 9 — check `>queue`"
+    assert asyncio.run(remove(ctx, "9")) == "no track at position 9 — check `@Anna queue`"
     assert "usage" in asyncio.run(remove(ctx, "abc"))
 
 
@@ -74,7 +74,7 @@ def test_playnext_front_queues(mm, ctx, monkeypatch):
 
 def test_playnext_rejects_playlists(ctx):
     response = asyncio.run(playnext(ctx, "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"))
-    assert "use `>play`" in response
+    assert "use `@Anna play`" in response
 
 
 def test_playnext_usage(ctx):

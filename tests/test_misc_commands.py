@@ -78,9 +78,11 @@ def test_help_lists_commands():
 def test_help_detail():
     response = asyncio.run(help_cmd(make_ctx(), "play"))
     assert "Usage" in response
-    assert ">play" in response
+    assert "@Anna play" in response
     # Developer-facing sections are stripped
     assert "Args:" not in response
+    # No stale > prefix style anywhere in the help text
+    assert ">play" not in response
 
 
 def test_help_detail_strips_angle_bracket():

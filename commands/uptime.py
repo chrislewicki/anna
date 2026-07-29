@@ -13,7 +13,7 @@ async def uptime(ctx: 'CommandContext', args: str) -> str:
     """
     Display bot uptime since startup.
 
-    Usage: @Anna >uptime
+    Usage: @Anna uptime
 
     Args:
         ctx: Command context

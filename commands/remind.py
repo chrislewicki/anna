@@ -26,9 +26,9 @@ MENTION_RE = re.compile(r'^<@!?(\d+)>')
 MULTIPLIERS = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}
 
 USAGE = (
-    "usage: `>remind [@user] <time> <message>`\n"
-    "examples: `>remind 5m check oven`, `>remind 1h30m meeting`, "
-    "`>remind at 5pm dinner`, `>remind @dave 10m your turn`\n"
+    "usage: `@Anna remind [@user] <time> <message>`\n"
+    "examples: `@Anna remind 5m check oven`, `@Anna remind 1h30m meeting`, "
+    "`@Anna remind at 5pm dinner`, `@Anna remind @dave 10m your turn`\n"
     "time formats: `30s`, `5m`, `2h`, `1d`, `1h30m`, `at 17:30`, `at 5pm`"
 )
 
@@ -106,12 +106,12 @@ async def remind(ctx: 'CommandContext', args: str) -> str:
     """
     Set a reminder for yourself or someone else.
 
-    Usage: @Anna >remind [@user] <time> <message>
+    Usage: @Anna remind [@user] <time> <message>
     Examples:
-        @Anna >remind 5m check the oven
-        @Anna >remind 1h30m meeting starts
-        @Anna >remind at 5pm dinner time
-        @Anna >remind @dave 10m your turn
+        @Anna remind 5m check the oven
+        @Anna remind 1h30m meeting starts
+        @Anna remind at 5pm dinner time
+        @Anna remind @dave 10m your turn
 
     Supported time formats:
         30s, 5m, 2h, 1d  - relative

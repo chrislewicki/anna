@@ -12,7 +12,7 @@ async def nowplaying(ctx: 'CommandContext', args: str) -> str:
     """
     Show the currently playing track.
 
-    Usage: @Anna >nowplaying (or >np)
+    Usage: @Anna nowplaying (or @Anna np)
 
     Args:
         ctx: Command context

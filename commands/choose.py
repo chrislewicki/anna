@@ -11,11 +11,11 @@ async def choose(ctx: 'CommandContext', args: str) -> str:
     """
     Pick one of several options at random.
 
-    Usage: @Anna >choose <option> | <option> [| ...]
+    Usage: @Anna choose <option> | <option> [| ...]
     Examples:
-        @Anna >choose pizza | tacos | sushi
-        @Anna >choose red, green, blue
-        @Anna >choose heads tails
+        @Anna choose pizza | tacos | sushi
+        @Anna choose red, green, blue
+        @Anna choose heads tails
 
     Options split on `|` if present, then commas, then spaces.
 
@@ -35,6 +35,6 @@ async def choose(ctx: 'CommandContext', args: str) -> str:
 
     options = [o.strip() for o in options if o.strip()]
     if len(options) < 2:
-        return "give me at least two options, e.g. `>choose pizza | tacos`"
+        return "give me at least two options, e.g. `@Anna choose pizza | tacos`"
 
     return f"i choose: **{random.choice(options)}**"

@@ -14,8 +14,8 @@ async def saveq(ctx: 'CommandContext', args: str) -> str:
     """
     Save the current queue (including the playing track) as a named playlist.
 
-    Usage: @Anna >saveq <name>
-    Example: @Anna >saveq friday bangers
+    Usage: @Anna saveq <name>
+    Example: @Anna saveq friday bangers
 
     Args:
         ctx: Command context
@@ -29,7 +29,7 @@ async def saveq(ctx: 'CommandContext', args: str) -> str:
 
     name = args.strip()
     if not name:
-        return "usage: `>saveq <name>`"
+        return "usage: `@Anna saveq <name>`"
     if len(name) > MAX_NAME_LENGTH:
         return f"name too long (max {MAX_NAME_LENGTH} characters)"
 
@@ -54,8 +54,8 @@ async def loadq(ctx: 'CommandContext', args: str) -> str:
     """
     Load a saved playlist into the queue.
 
-    Usage: @Anna >loadq <name>
-    Example: @Anna >loadq friday bangers
+    Usage: @Anna loadq <name>
+    Example: @Anna loadq friday bangers
 
     Args:
         ctx: Command context
@@ -69,12 +69,12 @@ async def loadq(ctx: 'CommandContext', args: str) -> str:
 
     name = args.strip()
     if not name:
-        return "usage: `>loadq <name>` (see `>playlists`)"
+        return "usage: `@Anna loadq <name>` (see `@Anna playlists`)"
 
     guild_id = ctx.message.guild.id
     playlist = ctx.playlist_store.get_playlist(guild_id, name)
     if playlist is None:
-        return f"no saved playlist named **{name}** — see `>playlists`"
+        return f"no saved playlist named **{name}** — see `@Anna playlists`"
 
     error = await _ensure_voice(ctx)
     if error:
@@ -98,7 +98,7 @@ async def playlists(ctx: 'CommandContext', args: str) -> str:
     """
     List this server's saved playlists.
 
-    Usage: @Anna >playlists
+    Usage: @Anna playlists
 
     Args:
         ctx: Command context
@@ -112,12 +112,12 @@ async def playlists(ctx: 'CommandContext', args: str) -> str:
 
     saved = ctx.playlist_store.list_playlists(ctx.message.guild.id)
     if not saved:
-        return "no saved playlists — save the queue with `>saveq <name>`"
+        return "no saved playlists — save the queue with `@Anna saveq <name>`"
 
     lines = ["**saved playlists:**"]
     for playlist in saved:
         lines.append(f"- {playlist['name']} ({len(playlist['tracks'])} tracks)")
-    lines.append("load one with `>loadq <name>`")
+    lines.append("load one with `@Anna loadq <name>`")
     return "\n".join(lines)
 
 
@@ -125,7 +125,7 @@ async def delq(ctx: 'CommandContext', args: str) -> str:
     """
     Delete a saved playlist.
 
-    Usage: @Anna >delq <name>
+    Usage: @Anna delq <name>
 
     Args:
         ctx: Command context
@@ -139,7 +139,7 @@ async def delq(ctx: 'CommandContext', args: str) -> str:
 
     name = args.strip()
     if not name:
-        return "usage: `>delq <name>`"
+        return "usage: `@Anna delq <name>`"
 
     if ctx.playlist_store.delete_playlist(ctx.message.guild.id, name):
         return f"deleted playlist **{name}**"

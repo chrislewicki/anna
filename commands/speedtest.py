@@ -17,7 +17,7 @@ async def speedtest(ctx: 'CommandContext', args: str) -> str:
     Measures download speed, upload speed, and ping using Speedtest.net.
     Note: This can take 15-30 seconds to complete.
 
-    Usage: @Anna >speedtest
+    Usage: @Anna speedtest
 
     Args:
         ctx: Command context

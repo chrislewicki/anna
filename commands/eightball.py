@@ -34,8 +34,8 @@ async def eightball(ctx: 'CommandContext', args: str) -> str:
     """
     Consult the magic 8-ball.
 
-    Usage: @Anna >8ball <question>
-    Example: @Anna >8ball will it rain tomorrow?
+    Usage: @Anna 8ball <question>
+    Example: @Anna 8ball will it rain tomorrow?
 
     Args:
         ctx: Command context
@@ -45,6 +45,6 @@ async def eightball(ctx: 'CommandContext', args: str) -> str:
         The 8-ball's wisdom
     """
     if not args.strip():
-        return "ask me a question, e.g. `>8ball will it rain tomorrow?`"
+        return "ask me a question, e.g. `@Anna 8ball will it rain tomorrow?`"
 
     return f"🎱 {random.choice(RESPONSES)}"
