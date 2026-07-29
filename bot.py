@@ -9,7 +9,8 @@ import os
 from message_handler import MessageHandler
 from reminder_manager import ReminderManager
 from music_manager import MusicManager
-from config import ANNA_ROLE_IDS, REMINDER_CHECK_INTERVAL_SECONDS
+from playlist_store import PlaylistStore
+from config import ANNA_ROLE_IDS, REMINDER_CHECK_INTERVAL_SECONDS, IDLE_DISCONNECT_SECONDS
 import state  # noqa: F401 — imported eagerly so START_TS is captured at boot
 
 # Configure logging
@@ -86,13 +87,16 @@ async def on_ready():
 
     # Initialize managers (order matters - reminder_manager must exist first)
     reminder_manager = ReminderManager()
-    music_manager = MusicManager()
-    handler = MessageHandler(client.user.id, ANNA_ROLE_IDS, reminder_manager, music_manager)
+    music_manager = MusicManager(client)
+    playlist_store = PlaylistStore()
+    handler = MessageHandler(client.user.id, ANNA_ROLE_IDS, reminder_manager, music_manager, playlist_store)
     logger.info(f"Logged in as {client.user}")
 
-    # Start reminder background task
+    # Start background tasks
     asyncio.create_task(check_reminders())
     logger.info("Reminder checker started")
+    asyncio.create_task(check_idle_voice())
+    logger.info("Idle voice checker started")
 
 
 @client.event
@@ -167,6 +171,21 @@ async def check_reminders():
 
         # Check every N seconds (configurable)
         await asyncio.sleep(REMINDER_CHECK_INTERVAL_SECONDS)
+
+
+async def check_idle_voice():
+    """Background task that disconnects idle voice connections."""
+    await client.wait_until_ready()
+
+    while not client.is_closed():
+        try:
+            for guild_id in music_manager.check_idle(IDLE_DISCONNECT_SECONDS):
+                logger.info(f"Idle timeout reached in guild {guild_id}, disconnecting")
+                await music_manager.leave_channel(guild_id)
+        except Exception as e:
+            logger.error(f"Error in idle voice checker loop: {e}", exc_info=True)
+
+        await asyncio.sleep(60)
 
 
 # Run the bot

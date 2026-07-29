@@ -1,8 +1,9 @@
 """Message parsing logic for Discord messages."""
 
+import re
 from dataclasses import dataclass
 from typing import Optional, List
-from config import PASSIVE_MENTION_TRIGGERS
+from config import PASSIVE_MENTION_PATTERN
 
 
 @dataclass
@@ -43,8 +44,9 @@ def parse_message(
     is_role_mentioned = any(f"<@&{role_id}>" in content for role_id in bot_role_ids)
     is_bot_mentioned = is_user_mentioned or is_role_mentioned or is_reply_to_bot
 
-    # Check for passive mentions ("anna" in conversation)
-    is_passive_mention = any(trigger in content.lower() for trigger in PASSIVE_MENTION_TRIGGERS)
+    # Check for passive mentions ("anna" in conversation, including at
+    # the start or end of the message)
+    is_passive_mention = re.search(PASSIVE_MENTION_PATTERN, content.lower()) is not None
 
     # Extract clean prompt (remove mentions)
     clean_prompt = content

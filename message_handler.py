@@ -11,23 +11,25 @@ logger = logging.getLogger(__name__)
 class CommandContext:
     """Simple context object for command router."""
 
-    def __init__(self, message, bot_user_id: int, role_ids: List[int], reminder_manager=None, music_manager=None):
+    def __init__(self, message, bot_user_id: int, role_ids: List[int], reminder_manager=None, music_manager=None, playlist_store=None):
         self.content = message.content
         self.anna_user_id = bot_user_id
         self.role_ids = role_ids
         self.message = message
         self.reminder_manager = reminder_manager
         self.music_manager = music_manager
+        self.playlist_store = playlist_store
 
 
 class MessageHandler:
     """Handles incoming Discord messages and coordinates responses."""
 
-    def __init__(self, bot_user_id: int, bot_role_ids: List[int], reminder_manager=None, music_manager=None):
+    def __init__(self, bot_user_id: int, bot_role_ids: List[int], reminder_manager=None, music_manager=None, playlist_store=None):
         self.bot_user_id = bot_user_id
         self.bot_role_ids = bot_role_ids
         self.reminder_manager = reminder_manager
         self.music_manager = music_manager
+        self.playlist_store = playlist_store
         logger.info("MessageHandler initialized")
 
     async def handle_message(self, message) -> Optional[str]:
@@ -74,7 +76,7 @@ class MessageHandler:
         # Dispatch to command router
         logger.info(f"Command detected: {parsed.clean_prompt}")
         try:
-            ctx = CommandContext(message, self.bot_user_id, self.bot_role_ids, self.reminder_manager, self.music_manager)
+            ctx = CommandContext(message, self.bot_user_id, self.bot_role_ids, self.reminder_manager, self.music_manager, self.playlist_store)
             result = await dispatch(ctx)
             return result.text
         except Exception as e:
