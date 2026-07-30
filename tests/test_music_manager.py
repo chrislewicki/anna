@@ -141,6 +141,99 @@ def test_set_loop_mode_validates(mm):
         mm.set_loop_mode(1, 'forever')
 
 
+# --- stop halts the queue ---
+
+@pytest.fixture
+def scheduled(monkeypatch):
+    """Record _play_next scheduling from the playback-finished callback."""
+    calls = []
+    monkeypatch.setattr(music_manager.asyncio, 'run_coroutine_threadsafe',
+                        lambda coro, loop: (calls.append(coro), coro.close()))
+    return calls
+
+
+def test_stop_halts_queue(mm, scheduled):
+    vc = FakeVoiceClient()
+    vc._playing = True
+    mm.voice_clients[1] = vc
+    mm.loop = object()  # pretend the event loop reference exists
+    current = track("current")
+    mm.now_playing[1] = current
+    mm.queues[1] = deque([track("next")])
+
+    assert mm.stop(1) is True
+    mm._playback_finished(1, None)  # what discord fires after vc.stop()
+
+    assert scheduled == []                       # queue does NOT advance
+    assert mm.now_playing[1] is None
+    assert mm.queues[1][0] is current            # stopped track back at front
+    assert [t.title for t in mm.queues[1]] == ["current", "next"]
+    assert 1 not in mm._stopped                  # flag consumed
+
+
+def test_stop_does_not_trigger_loop_or_autoplay(mm, scheduled):
+    vc = FakeVoiceClient()
+    vc._playing = True
+    mm.voice_clients[1] = vc
+    mm.loop = object()
+    mm.set_loop_mode(1, 'track')
+    mm.set_autoplay(1, True)
+    mm.now_playing[1] = track("current")
+
+    mm.stop(1)
+    mm._playback_finished(1, None)
+
+    assert scheduled == []
+    assert [t.title for t in mm.queues[1]] == ["current"]  # requeued once, not doubled
+
+
+def test_skip_still_advances_queue(mm, scheduled):
+    vc = FakeVoiceClient()
+    vc._playing = True
+    mm.voice_clients[1] = vc
+    mm.loop = object()
+    mm.now_playing[1] = track("current")
+    mm.queues[1] = deque([track("next")])
+
+    mm.skip(1)
+    mm._playback_finished(1, None)
+
+    assert len(scheduled) == 1                   # queue DOES advance
+    assert [t.title for t in mm.queues[1]] == ["next"]  # skipped track not requeued
+
+
+def test_natural_finish_advances_queue(mm, scheduled):
+    vc = FakeVoiceClient()
+    mm.voice_clients[1] = vc
+    mm.loop = object()
+    mm.now_playing[1] = track("done")
+
+    mm._playback_finished(1, None)
+    assert len(scheduled) == 1
+
+
+def test_start_queue_after_stop(mm, monkeypatch, patched_audio):
+    vc = FakeVoiceClient()
+    mm.voice_clients[1] = vc
+    mm.queues[1] = deque([track("halted")])
+
+    info = {'url': 'http://audio', 'id': 'v1', 'title': 'halted', 'duration': 60}
+    monkeypatch.setattr(music_manager.yt_dlp, 'YoutubeDL', FakeYDL(info))
+
+    assert asyncio.run(mm.start_queue(1)) is True
+    assert mm.now_playing[1].title == "halted"
+
+
+def test_start_queue_noop_while_playing(mm):
+    vc = FakeVoiceClient()
+    vc._playing = True
+    mm.voice_clients[1] = vc
+    mm.queues[1] = deque([track("queued")])
+
+    assert asyncio.run(mm.start_queue(1)) is False
+    assert len(mm.queues[1]) == 1
+
+
 # --- volume ---
 
 def test_volume_default(mm):

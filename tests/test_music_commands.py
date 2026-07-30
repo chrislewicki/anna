@@ -16,6 +16,8 @@ from commands.loop import loop
 from commands.volume import volume
 from commands.autoplay import autoplay
 from commands.skip import skip
+from commands.stop import stop
+from commands.play import play
 from commands.nowplaying import nowplaying
 from commands.shuffle import shuffle
 from conftest import FakeVoiceClient, FakeYDL, make_ctx
@@ -133,6 +135,46 @@ def test_skip_command(mm, ctx):
     mm.queues[1] = deque([track("next")])
     assert asyncio.run(skip(ctx, "")) == "skipped: current"
     assert 1 in mm._skipped
+
+
+# --- stop / bare play resume ---
+
+def test_stop_command_reports_queue(mm, ctx):
+    vc = FakeVoiceClient()
+    vc._playing = True
+    mm.voice_clients[1] = vc
+    mm.now_playing[1] = track("current")
+    mm.queues[1] = deque([track("next"), track("later")])
+
+    response = asyncio.run(stop(ctx, ""))
+    assert response == "stopped playback — 3 track(s) still queued, `@Anna play` to resume"
+
+
+def test_stop_command_nothing_playing(mm, ctx):
+    mm.voice_clients[1] = FakeVoiceClient()
+    assert asyncio.run(stop(ctx, "")) == "nothing is playing"
+
+
+def test_bare_play_resumes_stopped_queue(mm, ctx, monkeypatch):
+    vc = FakeVoiceClient()
+    mm.voice_clients[1] = vc
+    mm.queues[1] = deque([track("halted")])
+
+    import discord
+    from types import SimpleNamespace as NS
+    monkeypatch.setattr(discord, 'FFmpegPCMAudio', lambda url, **kw: NS(url=url))
+    monkeypatch.setattr(discord, 'PCMVolumeTransformer',
+                        lambda source, volume=1.0: NS(source=source, volume=volume))
+    info = {'url': 'http://audio', 'id': 'v1', 'title': 'halted', 'duration': 60}
+    monkeypatch.setattr(music_manager.yt_dlp, 'YoutubeDL', FakeYDL(info))
+
+    response = asyncio.run(play(ctx, ""))
+    assert response == "resuming the queue: halted"
+
+
+def test_bare_play_empty_queue_shows_usage(mm, ctx):
+    mm.voice_clients[1] = FakeVoiceClient()
+    assert "usage" in asyncio.run(play(ctx, ""))
 
 
 # --- nowplaying progress ---

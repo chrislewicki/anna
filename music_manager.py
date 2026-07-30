@@ -92,6 +92,7 @@ class MusicManager:
 
         # Transient per-guild state
         self._skipped: set = set()              # guilds where current track was skipped
+        self._stopped: set = set()              # guilds where playback was halted via stop()
         self._idle_since: Dict[int, float] = {}
         self._last_track: Dict[int, QueuedTrack] = {}
         self._last_video_id: Dict[int, str] = {}
@@ -148,6 +149,7 @@ class MusicManager:
             self.queues.pop(guild_id, None)
             self.now_playing.pop(guild_id, None)
             self._skipped.discard(guild_id)
+            self._stopped.discard(guild_id)
             self._idle_since.pop(guild_id, None)
             self._last_track.pop(guild_id, None)
             self._last_video_id.pop(guild_id, None)
@@ -443,8 +445,10 @@ class MusicManager:
             return False
 
         try:
-            # Stop current playback if any
+            # Stop current playback if any (flagged so the finished-callback
+            # doesn't also advance the queue underneath us)
             if voice_client.is_playing():
+                self._stopped.add(guild_id)
                 voice_client.stop()
 
             # Extract audio info with yt-dlp
@@ -483,7 +487,18 @@ class MusicManager:
 
         track = self.now_playing.get(guild_id)
         was_skipped = guild_id in self._skipped
+        was_stopped = guild_id in self._stopped
         self._skipped.discard(guild_id)
+        self._stopped.discard(guild_id)
+
+        # stop() halts the queue entirely: put the interrupted track back at
+        # the front so a later play/start resumes from it, and don't advance
+        if was_stopped:
+            if track is not None and not error:
+                self.queues.setdefault(guild_id, deque()).appendleft(track)
+            self.now_playing[guild_id] = None
+            logger.info(f"Playback stopped in guild {guild_id}, queue halted")
+            return
 
         # Loop modes: re-queue the finished track
         mode = self.loop_modes.get(guild_id, 'off')
@@ -680,11 +695,28 @@ class MusicManager:
         return False
 
     def stop(self, guild_id: int) -> bool:
-        """Stop playback."""
+        """
+        Stop playback and halt the queue.
+
+        The interrupted track goes back to the front of the queue, which is
+        otherwise left untouched; use start_queue() to pick it back up.
+        """
         voice_client = self.get_voice_client(guild_id)
         if voice_client and (voice_client.is_playing() or voice_client.is_paused()):
-            # Flag as skipped so loop-track doesn't immediately replay it
-            self._skipped.add(guild_id)
+            self._stopped.add(guild_id)
             voice_client.stop()
             return True
         return False
+
+    async def start_queue(self, guild_id: int) -> bool:
+        """
+        Start playing the queue if connected and nothing is playing
+        (e.g. after stop()).
+
+        Returns:
+            True if a track started playing
+        """
+        voice_client = self.get_voice_client(guild_id)
+        if not voice_client or voice_client.is_playing() or voice_client.is_paused():
+            return False
+        return await self._play_next(guild_id)

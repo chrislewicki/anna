@@ -69,6 +69,8 @@ async def play(ctx: 'CommandContext', args: str) -> str:
         @Anna play aespa whiplash
         @Anna play lofi hip hop beats
 
+    With no arguments, restarts a stopped queue.
+
     Args:
         ctx: Command context
         args: URL or search terms
@@ -77,6 +79,12 @@ async def play(ctx: 'CommandContext', args: str) -> str:
         Status message
     """
     if not args.strip():
+        # Bare play: restart the queue after a stop
+        guild_id = ctx.message.guild.id
+        if ctx.music_manager.queues.get(guild_id):
+            if await ctx.music_manager.start_queue(guild_id):
+                playing = ctx.music_manager.now_playing.get(guild_id)
+                return f"resuming the queue: {playing.title}" if playing else "resuming the queue"
         return "usage: `@Anna play <url or search terms>`"
 
     query = args.strip()
