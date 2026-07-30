@@ -12,6 +12,7 @@ services:
 
     volumes:
       - ./reminders.json:/app/reminders.json
+      - ./playlists.json:/app/playlists.json
     # Optional: limit resources
     deploy:
       resources:
