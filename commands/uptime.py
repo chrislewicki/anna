@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from state import START_TS
+from utils import format_duration_long
 
 if TYPE_CHECKING:
     from message_handler import CommandContext
@@ -12,13 +13,14 @@ async def uptime(ctx: 'CommandContext', args: str) -> str:
     """
     Display bot uptime since startup.
 
+    Usage: @Anna uptime
+
     Args:
         ctx: Command context
         args: Command arguments (unused)
 
     Returns:
-        Uptime in seconds
+        Human-readable uptime
     """
     delta = datetime.now(timezone.utc) - START_TS
-    secs = int(delta.total_seconds())
-    return f"Uptime: {secs}s"
+    return f"Uptime: {format_duration_long(int(delta.total_seconds()))}"

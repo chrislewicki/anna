@@ -10,7 +10,7 @@ async def leave(ctx: 'CommandContext', args: str) -> str:
     """
     Leave the voice channel.
 
-    Usage: @Anna >leave
+    Usage: @Anna leave
 
     Args:
         ctx: Command context

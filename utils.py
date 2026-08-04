@@ -10,6 +10,42 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def format_duration_long(seconds: int) -> str:
+    """
+    Format seconds as a compact multi-unit duration.
+
+    Examples:
+        93784 -> "1d 2h 3m 4s"
+        3600  -> "1h"
+        59    -> "59s"
+    """
+    seconds = max(0, int(seconds))
+    parts = []
+    for unit_seconds, label in ((86400, 'd'), (3600, 'h'), (60, 'm')):
+        if seconds >= unit_seconds:
+            parts.append(f"{seconds // unit_seconds}{label}")
+            seconds %= unit_seconds
+    if seconds or not parts:
+        parts.append(f"{seconds}s")
+    return " ".join(parts)
+
+
+def format_track_time(seconds: int) -> str:
+    """
+    Format seconds as a track timestamp.
+
+    Examples:
+        151  -> "2:31"
+        3723 -> "1:02:03"
+    """
+    seconds = max(0, int(seconds))
+    hours, rem = divmod(seconds, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"
+
+
 def atomic_json_save(data: Any, file_path: str) -> None:
     """
     Save JSON data atomically to prevent corruption.

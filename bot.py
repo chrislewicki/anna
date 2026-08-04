@@ -9,7 +9,9 @@ import os
 from message_handler import MessageHandler
 from reminder_manager import ReminderManager
 from music_manager import MusicManager
-from config import ANNA_ROLE_IDS, REMINDER_CHECK_INTERVAL_SECONDS
+from playlist_store import PlaylistStore
+from config import ANNA_ROLE_IDS, REMINDER_CHECK_INTERVAL_SECONDS, IDLE_DISCONNECT_SECONDS
+import state  # noqa: F401 — imported eagerly so START_TS is captured at boot
 
 # Configure logging
 logging.basicConfig(
@@ -42,21 +44,8 @@ def validate_environment():
     Raises:
         ValueError: If any required environment variables are missing
     """
-    required = {
-        "DISCORD_TOKEN": "Discord bot token",
-        "AUTH_TOKEN": "LLM API authentication token"
-    }
-
-    missing = []
-    for var, description in required.items():
-        if not os.getenv(var):
-            missing.append(f"{var} ({description})")
-
-    if missing:
-        error_msg = "Missing required environment variables:\n" + "\n".join(f"  - {m}" for m in missing)
-        logger.error(error_msg)
-        raise ValueError(error_msg)
-
+    if not os.getenv("DISCORD_TOKEN"):
+        raise ValueError("DISCORD_TOKEN environment variable is required")
     logger.info("Environment validation passed")
 
 
@@ -76,10 +65,6 @@ def handle_shutdown(signum, frame):
     if reminder_manager:
         logger.info("Saving reminders...")
         reminder_manager.save()
-
-    if handler and handler.context_manager:
-        logger.info("Saving context...")
-        handler.context_manager.save()
 
     logger.info("Shutdown complete")
     client.loop.stop()
@@ -102,13 +87,16 @@ async def on_ready():
 
     # Initialize managers (order matters - reminder_manager must exist first)
     reminder_manager = ReminderManager()
-    music_manager = MusicManager()
-    handler = MessageHandler(client.user.id, ANNA_ROLE_IDS, reminder_manager, music_manager)
+    music_manager = MusicManager(client)
+    playlist_store = PlaylistStore()
+    handler = MessageHandler(client.user.id, ANNA_ROLE_IDS, reminder_manager, music_manager, playlist_store)
     logger.info(f"Logged in as {client.user}")
 
-    # Start reminder background task
+    # Start background tasks
     asyncio.create_task(check_reminders())
     logger.info("Reminder checker started")
+    asyncio.create_task(check_idle_voice())
+    logger.info("Idle voice checker started")
 
 
 @client.event
@@ -141,8 +129,6 @@ async def on_close():
     logger.info("Bot disconnecting, saving state...")
     if reminder_manager:
         reminder_manager.save()
-    if handler:
-        handler.context_manager.save()
 
 
 async def check_reminders():
@@ -185,6 +171,21 @@ async def check_reminders():
 
         # Check every N seconds (configurable)
         await asyncio.sleep(REMINDER_CHECK_INTERVAL_SECONDS)
+
+
+async def check_idle_voice():
+    """Background task that disconnects idle voice connections."""
+    await client.wait_until_ready()
+
+    while not client.is_closed():
+        try:
+            for guild_id in music_manager.check_idle(IDLE_DISCONNECT_SECONDS):
+                logger.info(f"Idle timeout reached in guild {guild_id}, disconnecting")
+                await music_manager.leave_channel(guild_id)
+        except Exception as e:
+            logger.error(f"Error in idle voice checker loop: {e}", exc_info=True)
+
+        await asyncio.sleep(60)
 
 
 # Run the bot

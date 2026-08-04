@@ -10,7 +10,9 @@ async def skip(ctx: 'CommandContext', args: str) -> str:
     """
     Skip the currently playing track.
 
-    Usage: @Anna >skip
+    Usage: @Anna skip
+
+    Skipping always moves to the next track, even when `@Anna loop track` is on.
 
     Args:
         ctx: Command context
@@ -22,24 +24,15 @@ async def skip(ctx: 'CommandContext', args: str) -> str:
     guild_id = ctx.message.guild.id
     music_manager = ctx.music_manager
 
-    voice_client = music_manager.get_voice_client(guild_id)
-    if not voice_client:
+    if not music_manager.get_voice_client(guild_id):
         return "not in a voice channel"
 
-    # Check if something is playing
-    if not voice_client.is_playing() and not voice_client.is_paused():
+    title = music_manager.skip(guild_id)
+    if title is None:
         return "nothing is playing"
 
-    # Get current track info for response
-    now_playing = music_manager.now_playing.get(guild_id)
-    track_name = now_playing.title if now_playing else "current track"
-
-    # Stop current track (will trigger callback to play next)
-    voice_client.stop()
-
-    # Check if there's a next track
     queue_items = music_manager.queues.get(guild_id)
     if queue_items and len(queue_items) > 0:
-        return f"skipped: {track_name}"
+        return f"skipped: {title}"
     else:
-        return f"skipped: {track_name} (queue is now empty)"
+        return f"skipped: {title} (queue is now empty)"

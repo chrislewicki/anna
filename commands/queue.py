@@ -10,7 +10,7 @@ async def queue(ctx: 'CommandContext', args: str) -> str:
     """
     View the current music queue.
 
-    Usage: @Anna >queue
+    Usage: @Anna queue
 
     Args:
         ctx: Command context

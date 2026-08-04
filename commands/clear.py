@@ -10,7 +10,7 @@ async def clear(ctx: 'CommandContext', args: str) -> str:
     """
     Clear the music queue.
 
-    Usage: @Anna >clear
+    Usage: @Anna clear
 
     Args:
         ctx: Command context
