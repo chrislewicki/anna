@@ -63,6 +63,18 @@ def test_parse_apple_server_data():
     assert playlist.tracks[0].query == "ytsearch1:Artist A Song A"
 
 
+def test_parse_apple_censored_title_sanitized_for_search():
+    html = apple_server_data_html([
+        {"itemKind": "trackLockup", "items": [
+            {"title": "F**k My Computer", "artistName": "Ninajirachi"},
+        ]},
+    ])
+    playlist = _parse_apple_server_data(html)
+    # Display keeps the censored title; the search query drops the asterisks
+    assert playlist.tracks[0].title == "F**k My Computer — Ninajirachi"
+    assert playlist.tracks[0].query == "ytsearch1:Ninajirachi F k My Computer"
+
+
 def test_parse_apple_server_data_missing_returns_none():
     assert _parse_apple_server_data("<html>nothing here</html>") is None
 

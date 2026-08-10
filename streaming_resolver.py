@@ -3,6 +3,7 @@
 from urllib.parse import urlparse
 import requests
 import logging
+from utils import youtube_search_query
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,6 @@ def resolve_streaming_url(url: str) -> str:
     if title:
         search_query = f"{artist} {title}".strip() if artist else title
         logger.info(f"No YouTube link found, falling back to search: {search_query}")
-        return f"ytsearch1:{search_query}"
+        return youtube_search_query(search_query)
 
     raise RuntimeError("couldn't resolve streaming link: no track info or YouTube link found")

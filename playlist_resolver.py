@@ -10,6 +10,8 @@ from urllib.parse import urlparse, parse_qs
 import requests
 import yt_dlp
 
+from utils import youtube_search_query
+
 logger = logging.getLogger(__name__)
 
 REQUEST_HEADERS = {
@@ -115,7 +117,7 @@ def _fetch_page(url: str) -> str:
 def _search_track(title: str, artist: str) -> PlaylistTrack:
     query = f"{artist} {title}".strip() if artist else title
     display = f"{title} — {artist}" if artist else title
-    return PlaylistTrack(query=f"ytsearch1:{query}", title=display)
+    return PlaylistTrack(query=youtube_search_query(query), title=display)
 
 
 def _resolve_spotify(url: str) -> ResolvedPlaylist:

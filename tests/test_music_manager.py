@@ -301,8 +301,12 @@ def test_play_next_search_result(mm, monkeypatch, patched_audio):
     mm.queues[1] = deque([track("Song", url="ytsearch1:artist song", duration=None)])
     mm.volumes[1] = 0.5
 
-    info = {'entries': [{'url': 'http://audio', 'id': 'vid1', 'title': 'Song', 'duration': 100}]}
-    monkeypatch.setattr(music_manager.yt_dlp, 'YoutubeDL', FakeYDL(info))
+    def info_for(url):
+        if url.startswith("ytsearch"):
+            return {'entries': [{'url': 'https://yt/vid1', 'id': 'vid1', 'title': 'Song'}]}
+        return {'url': 'http://audio', 'id': 'vid1', 'title': 'Song', 'duration': 100}
+
+    monkeypatch.setattr(music_manager.yt_dlp, 'YoutubeDL', FakeYDL(info_for))
 
     assert asyncio.run(mm._play_next(1)) is True
     assert vc.is_playing()
@@ -342,7 +346,7 @@ def test_play_next_empty_search_skips_to_next(mm, monkeypatch, patched_audio):
     ])
 
     def info_for(url):
-        if url.startswith("ytsearch1:"):
+        if url.startswith("ytsearch"):
             return {'entries': []}
         return {'url': 'http://audio', 'id': 'vid2', 'title': 'Good', 'duration': 60}
 
@@ -351,6 +355,50 @@ def test_play_next_empty_search_skips_to_next(mm, monkeypatch, patched_audio):
     assert asyncio.run(mm._play_next(1)) is True
     assert "couldn't play **NoResults**" in channel.sent[0]
     assert mm.now_playing[1].title == "Good"
+
+
+def test_play_next_search_skips_unplayable_results(mm, monkeypatch, patched_audio):
+    """Age-restricted top hits are skipped in favor of a playable result."""
+    vc = FakeVoiceClient()
+    mm.voice_clients[1] = vc
+    mm.queues[1] = deque([track("Song", url="ytsearch1:artist song")])
+
+    tried = []
+
+    def info_for(url):
+        tried.append(url)
+        if url.startswith("ytsearch"):
+            return {'entries': [
+                {'id': 'age', 'url': 'https://yt/age', 'title': 'Age Restricted'},
+                {'id': 'ok', 'url': 'https://yt/ok', 'title': 'Playable'},
+            ]}
+        if url == 'https://yt/age':
+            raise Exception("Sign in to confirm your age")
+        return {'url': 'http://audio', 'id': 'ok', 'title': 'Playable', 'duration': 60}
+
+    monkeypatch.setattr(music_manager.yt_dlp, 'YoutubeDL', FakeYDL(info_for))
+
+    assert asyncio.run(mm._play_next(1)) is True
+    assert 'https://yt/age' in tried          # first result attempted
+    assert mm.now_playing[1] is not None      # ...but playback fell through to the next
+    assert mm._last_video_id[1] == 'ok'
+
+
+def test_add_to_queue_search_none_playable(mm, monkeypatch):
+    vc = FakeVoiceClient()
+    vc._playing = True
+    mm.voice_clients[1] = vc
+
+    def info_for(url):
+        if url.startswith("ytsearch"):
+            return {'entries': [{'id': 'age', 'url': 'https://yt/age', 'title': 'Nope'}]}
+        raise Exception("Sign in to confirm your age")
+
+    monkeypatch.setattr(music_manager.yt_dlp, 'YoutubeDL', FakeYDL(info_for))
+
+    success, message = asyncio.run(mm.add_to_queue(1, "ytsearch1:cursed song", 42))
+    assert success is False
+    assert message == "found results for 'cursed song' but none were playable"
 
 
 # --- autoplay ---

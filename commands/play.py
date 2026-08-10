@@ -5,6 +5,7 @@ import asyncio
 import logging
 from streaming_resolver import is_streaming_url, resolve_streaming_url
 from playlist_resolver import is_playlist_url, resolve_playlist
+from utils import youtube_search_query
 
 if TYPE_CHECKING:
     from message_handler import CommandContext
@@ -47,13 +48,14 @@ def _resolve_single_query(query: str) -> str:
     is_url = query.startswith(('http://', 'https://', 'www.')) or '/' in query
 
     if is_url and is_streaming_url(query):
+        # May return a URL or an already-prefixed "ytsearch1:" query
         query = resolve_streaming_url(query)
         logger.info(f"Resolved streaming URL to: {query}")
         is_url = query.startswith(('http://', 'https://'))
 
-    if not is_url:
+    if not is_url and not query.startswith('ytsearch'):
         logger.info(f"Searching YouTube for: {query}")
-        query = f"ytsearch1:{query}"
+        query = youtube_search_query(query)
 
     return query
 

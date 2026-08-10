@@ -48,6 +48,53 @@ LOOP_MODES = ('off', 'track', 'queue')
 # Autoplay won't repeat any of the last N videos played in a guild
 RECENT_TRACK_MEMORY = 50
 
+# How many search results to try before giving up on a query (the top hit
+# can be age-restricted or otherwise unplayable)
+SEARCH_RESULT_LIMIT = 5
+
+
+def _extract_playable_info(query: str) -> dict:
+    """
+    Extract full yt-dlp info for a URL or ytsearch query.
+
+    For searches, tries up to SEARCH_RESULT_LIMIT results in order and
+    returns the first that's actually playable — the top result is often
+    age-restricted or region-locked while an alternate upload works fine.
+
+    NOTE: Blocking (network).
+
+    Raises:
+        RuntimeError: With a user-friendly message when a search finds
+            nothing playable. Other extraction errors propagate as-is.
+    """
+    if not query.startswith('ytsearch'):
+        with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
+            return ydl.extract_info(query, download=False)
+
+    terms = query.split(':', 1)[1]
+
+    # Flat search first (one cheap request), then full-extract candidates
+    with yt_dlp.YoutubeDL(YDL_FLAT_OPTIONS) as ydl:
+        info = ydl.extract_info(f"ytsearch{SEARCH_RESULT_LIMIT}:{terms}", download=False)
+
+    entries = [e for e in (info.get('entries') or []) if e]
+    if not entries:
+        raise RuntimeError(f"couldn't find anything for: {terms}")
+
+    for entry in entries:
+        url = entry.get('url')
+        if not url and entry.get('id'):
+            url = f"https://www.youtube.com/watch?v={entry['id']}"
+        if not url:
+            continue
+        try:
+            with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
+                return ydl.extract_info(url, download=False)
+        except Exception as e:
+            logger.warning(f"Search result unplayable ({entry.get('title')}): {e}")
+
+    raise RuntimeError(f"found results for '{terms}' but none were playable")
+
 
 @dataclass
 class QueuedTrack:
@@ -191,20 +238,15 @@ class MusicManager:
             return False, "not connected to voice channel"
 
         try:
-            # Extract track info (title, duration, etc.)
-            with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
-                logger.info(f"Extracting info from: {url}")
-                info = ydl.extract_info(url, download=False)
+            # Extract track info (title, duration, etc.); searches fall
+            # through to the first playable result
+            logger.info(f"Extracting info from: {url}")
+            info = _extract_playable_info(url)
 
-                # Handle search results (ytsearch:) vs direct URLs
-                if 'entries' in info:
-                    # Search result - get first entry
-                    info = info['entries'][0]
-
-                title = info.get('title', 'Unknown')
-                duration = info.get('duration')  # Can be None
-                # Store the actual video URL, not the search query
-                video_url = info.get('webpage_url') or info.get('url') or url
+            title = info.get('title', 'Unknown')
+            duration = info.get('duration')  # Can be None
+            # Store the actual video URL, not the search query
+            video_url = info.get('webpage_url') or info.get('url') or url
 
             # Create queued track
             track = QueuedTrack(
@@ -235,6 +277,10 @@ class MusicManager:
                 queue_position = len(self.queues[guild_id])
                 return True, f"added to queue: {title} (position {queue_position})"
 
+        except RuntimeError as e:
+            # Friendly search failures ("couldn't find anything for ...")
+            logger.info(f"Search failed for guild {guild_id}: {e}")
+            return False, str(e)
         except Exception as e:
             logger.error(f"Failed to add to queue: {e}", exc_info=True)
             return False, f"failed to add to queue: {str(e)}"
@@ -325,18 +371,10 @@ class MusicManager:
         self.now_playing[guild_id] = track
 
         try:
-            # Extract audio URL (need fresh URL each time, they expire)
-            with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
-                info = ydl.extract_info(track.url, download=False)
-
-                # Search queries (ytsearch1:) return a results wrapper
-                if 'entries' in info:
-                    entries = [e for e in info['entries'] if e]
-                    if not entries:
-                        raise RuntimeError(f"no search results for: {track.title}")
-                    info = entries[0]
-
-                audio_url = info['url']
+            # Extract audio URL (need fresh URL each time, they expire);
+            # searches fall through to the first playable result
+            info = _extract_playable_info(track.url)
+            audio_url = info['url']
 
             # Create audio source, wrapped for per-guild volume control
             audio_source = discord.PCMVolumeTransformer(
