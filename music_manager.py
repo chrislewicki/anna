@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import random
+import shlex
 import time
 from typing import Optional, Dict, List
 from collections import deque
@@ -26,7 +27,9 @@ YDL_OPTIONS = {
     'quiet': True,
     'no_warnings': True,
     'default_search': 'auto',
-    'source_address': '0.0.0.0',
+    # NOTE: no 'source_address' pin — forcing yt-dlp onto IPv4 mints stream
+    # URLs bound to the v4 address while ffmpeg may fetch over IPv6, and
+    # googlevideo 403s the mismatch. Both must use the OS default.
 }
 
 # Flat extraction for autoplay (YouTube mix) lookups
@@ -51,6 +54,26 @@ RECENT_TRACK_MEMORY = 50
 # How many search results to try before giving up on a query (the top hit
 # can be age-restricted or otherwise unplayable)
 SEARCH_RESULT_LIMIT = 5
+
+# A track that "finishes" this quickly (with a real duration) didn't play —
+# ffmpeg was rejected by the stream server (e.g. HTTP 403)
+PLAYBACK_FAILURE_WINDOW_SECONDS = 3
+
+
+def _ffmpeg_options_for(info: dict) -> dict:
+    """
+    Build FFmpeg options for a track, forwarding the HTTP headers yt-dlp
+    used for extraction so the stream request matches (mismatched headers
+    are one way to earn a 403 from googlevideo).
+    """
+    options = dict(FFMPEG_OPTIONS)
+    headers = info.get('http_headers') or {}
+    if headers:
+        header_blob = ''.join(f"{key}: {value}\r\n" for key, value in headers.items())
+        options['before_options'] = (
+            f"-headers {shlex.quote(header_blob)} " + FFMPEG_OPTIONS['before_options']
+        )
+    return options
 
 
 def _extract_playable_info(query: str) -> dict:
@@ -105,6 +128,7 @@ class QueuedTrack:
     duration: Optional[int] = None
     channel_id: Optional[int] = None    # text channel for playback announcements
     started_at: Optional[float] = None  # unix timestamp when playback began
+    retries: int = 0                    # instant playback failures so far
 
 
 class MusicManager:
@@ -378,7 +402,7 @@ class MusicManager:
 
             # Create audio source, wrapped for per-guild volume control
             audio_source = discord.PCMVolumeTransformer(
-                discord.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS),
+                discord.FFmpegPCMAudio(audio_url, **_ffmpeg_options_for(info)),
                 volume=self.get_volume(guild_id)
             )
 
@@ -498,7 +522,7 @@ class MusicManager:
 
             # Create audio source
             audio_source = discord.PCMVolumeTransformer(
-                discord.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS),
+                discord.FFmpegPCMAudio(audio_url, **_ffmpeg_options_for(info)),
                 volume=self.get_volume(guild_id)
             )
 
@@ -538,16 +562,47 @@ class MusicManager:
             logger.info(f"Playback stopped in guild {guild_id}, queue halted")
             return
 
-        # Loop modes: re-queue the finished track
-        mode = self.loop_modes.get(guild_id, 'off')
-        if track is not None and not error:
-            if mode == 'track' and not was_skipped:
-                self.queues.setdefault(guild_id, deque()).appendleft(track)
-            elif mode == 'queue':
-                self.queues.setdefault(guild_id, deque()).append(track)
+        # A near-instant "finish" of a track with a real duration means
+        # ffmpeg never actually streamed it (e.g. googlevideo returned 403)
+        # — discord.py reports that as a clean finish, not an error
+        failed_instantly = (
+            not error
+            and not was_skipped
+            and track is not None
+            and track.started_at is not None
+            and time.time() - track.started_at < PLAYBACK_FAILURE_WINDOW_SECONDS
+            and (track.duration or 0) > 10
+        )
 
-        # Clear current track
-        self.now_playing[guild_id] = None
+        if failed_instantly:
+            self.now_playing[guild_id] = None
+            if track.retries < 1:
+                # Retry once with a fresh extraction — stream URLs can be
+                # stale or transiently rejected
+                track.retries += 1
+                logger.warning(f"Track ended almost immediately, retrying: {track.title}")
+                self.queues.setdefault(guild_id, deque()).appendleft(track)
+            else:
+                logger.error(f"Track failed to stream twice, dropping: {track.title}")
+                if self.loop:
+                    asyncio.run_coroutine_threadsafe(
+                        self._announce(
+                            track.channel_id,
+                            f"couldn't stream **{track.title}** (source rejected the connection), skipping"
+                        ),
+                        self.loop
+                    )
+        else:
+            # Loop modes: re-queue the finished track
+            mode = self.loop_modes.get(guild_id, 'off')
+            if track is not None and not error:
+                if mode == 'track' and not was_skipped:
+                    self.queues.setdefault(guild_id, deque()).appendleft(track)
+                elif mode == 'queue':
+                    self.queues.setdefault(guild_id, deque()).append(track)
+
+            # Clear current track
+            self.now_playing[guild_id] = None
 
         # Play next track if available
         if self.loop:
