@@ -38,6 +38,9 @@ Anna joins your voice channel automatically when you ask her to play something
 - **Spotify and Apple Music playlists and albums** — every track queued in
   order, including user-created Apple Music playlists (no API keys required)
 - **Plain search terms** — first YouTube result wins
+- **Steely Dan** — no. Anna detects it by search terms, link metadata, playlist
+  contents, and autoplay picks, refuses, and is rude about it. There is no
+  override.
 
 Playlist tracks are resolved lazily at playback time, so queueing a
 100-track playlist is instant.

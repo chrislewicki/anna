@@ -11,6 +11,8 @@ from dataclasses import dataclass
 import discord
 import yt_dlp
 
+import steely_dan
+
 logger = logging.getLogger(__name__)
 
 # yt-dlp configuration
@@ -267,6 +269,11 @@ class MusicManager:
             logger.info(f"Extracting info from: {url}")
             info = _extract_playable_info(url)
 
+            # A direct link or a sneaky search can still land on the Dan
+            if steely_dan.is_steely_dan_info(info):
+                logger.info(f"Refused Steely Dan in guild {guild_id}: {info.get('title')}")
+                return False, steely_dan.refusal()
+
             title = info.get('title', 'Unknown')
             duration = info.get('duration')  # Can be None
             # Store the actual video URL, not the search query
@@ -395,9 +402,17 @@ class MusicManager:
         self.now_playing[guild_id] = track
 
         try:
+            # Lazily-resolved playlist tracks ("Peg — Steely Dan") and
+            # autoplay picks only get vetted here; check the title before
+            # spending a network call, and the extracted metadata after
+            if steely_dan.is_steely_dan(track.title):
+                raise steely_dan.SteelyDanError()
+
             # Extract audio URL (need fresh URL each time, they expire);
             # searches fall through to the first playable result
             info = _extract_playable_info(track.url)
+            if steely_dan.is_steely_dan_info(info):
+                raise steely_dan.SteelyDanError()
             audio_url = info['url']
 
             # Create audio source, wrapped for per-guild volume control
@@ -431,6 +446,12 @@ class MusicManager:
 
             logger.info(f"Now playing in guild {guild_id}: {track.title}")
             return True
+
+        except steely_dan.SteelyDanError as e:
+            logger.info(f"Refused Steely Dan in guild {guild_id}: {track.title}")
+            self.now_playing[guild_id] = None
+            await self._announce(track.channel_id, f"skipping **{track.title}** — {e}")
+            return await self._play_next(guild_id)
 
         except Exception as e:
             logger.error(f"Failed to play track: {e}", exc_info=True)
@@ -476,8 +497,12 @@ class MusicManager:
             video_id = entry.get('id')
             if not video_id or video_id == seed_id or video_id in recent:
                 continue
-            url = entry.get('url') or f"https://www.youtube.com/watch?v={video_id}"
             title = entry.get('title') or 'Unknown'
+            # YouTube's mix radio has no taste; we do
+            if steely_dan.is_steely_dan(title, entry.get('uploader'), entry.get('channel')):
+                logger.info(f"Autoplay skipped Steely Dan for guild {guild_id}: {title}")
+                continue
+            url = entry.get('url') or f"https://www.youtube.com/watch?v={video_id}"
             logger.info(f"Autoplay picked for guild {guild_id}: {title}")
             return QueuedTrack(
                 url=url,
