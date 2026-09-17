@@ -5,6 +5,8 @@ import asyncio
 import logging
 from streaming_resolver import is_streaming_url, resolve_streaming_url
 from playlist_resolver import is_playlist_url, resolve_playlist
+from utils import youtube_search_query
+import steely_dan
 
 if TYPE_CHECKING:
     from message_handler import CommandContext
@@ -43,17 +45,28 @@ def _resolve_single_query(query: str) -> str:
 
     Raises:
         RuntimeError: If a streaming link can't be resolved
+        steely_dan.SteelyDanError: If somebody tries it anyway
     """
+    # Cheapest possible check first — don't waste a network call on this
+    if steely_dan.is_steely_dan(query):
+        raise steely_dan.SteelyDanError()
+
     is_url = query.startswith(('http://', 'https://', 'www.')) or '/' in query
 
     if is_url and is_streaming_url(query):
+        # May return a URL or an already-prefixed "ytsearch1:" query
         query = resolve_streaming_url(query)
         logger.info(f"Resolved streaming URL to: {query}")
         is_url = query.startswith(('http://', 'https://'))
 
-    if not is_url:
+    if not is_url and not query.startswith('ytsearch'):
         logger.info(f"Searching YouTube for: {query}")
-        query = f"ytsearch1:{query}"
+        query = youtube_search_query(query)
+
+    # Streaming links resolve to "ytsearch1:Artist Title" when odesli has
+    # no YouTube match, which can smuggle the artist name back in
+    if steely_dan.is_steely_dan(query):
+        raise steely_dan.SteelyDanError()
 
     return query
 
@@ -70,6 +83,8 @@ async def play(ctx: 'CommandContext', args: str) -> str:
         @Anna play lofi hip hop beats
 
     With no arguments, restarts a stopped queue.
+
+    Steely Dan is not supported. Don't ask.
 
     Args:
         ctx: Command context
@@ -127,9 +142,13 @@ async def _play_playlist(ctx: 'CommandContext', url: str) -> str:
     except RuntimeError as e:
         return str(e)
 
+    tracks, dropped = steely_dan.purge(playlist.tracks)
+    if not tracks:
+        return f"**{playlist.name}** is wall-to-wall Steely Dan. queued nothing. {steely_dan.refusal()}"
+
     success, message = await ctx.music_manager.add_playlist_to_queue(
         ctx.message.guild.id,
-        playlist.tracks,
+        tracks,
         ctx.message.author.id,
         channel_id=ctx.message.channel.id
     )
@@ -137,4 +156,4 @@ async def _play_playlist(ctx: 'CommandContext', url: str) -> str:
     if not success:
         return message
 
-    return f"queued {len(playlist.tracks)} tracks from **{playlist.name}**"
+    return f"queued {len(tracks)} tracks from **{playlist.name}**{steely_dan.playlist_note(dropped)}"

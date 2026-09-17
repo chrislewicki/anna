@@ -31,10 +31,20 @@ class FakeVolumeSource:
 
 @pytest.fixture
 def patched_audio(monkeypatch):
-    """Replace discord audio classes so no ffmpeg process is spawned."""
-    monkeypatch.setattr(music_manager.discord, 'FFmpegPCMAudio',
-                        lambda url, **kw: SimpleNamespace(url=url))
+    """Replace discord audio classes so no ffmpeg process is spawned.
+
+    Returns the list of created sources (with .url and .kwargs).
+    """
+    created = []
+
+    def fake_ffmpeg(url, **kwargs):
+        source = SimpleNamespace(url=url, kwargs=kwargs)
+        created.append(source)
+        return source
+
+    monkeypatch.setattr(music_manager.discord, 'FFmpegPCMAudio', fake_ffmpeg)
     monkeypatch.setattr(music_manager.discord, 'PCMVolumeTransformer', FakeVolumeSource)
+    return created
 
 
 # --- queue operations ---
@@ -301,8 +311,13 @@ def test_play_next_search_result(mm, monkeypatch, patched_audio):
     mm.queues[1] = deque([track("Song", url="ytsearch1:artist song", duration=None)])
     mm.volumes[1] = 0.5
 
-    info = {'entries': [{'url': 'http://audio', 'id': 'vid1', 'title': 'Song', 'duration': 100}]}
-    monkeypatch.setattr(music_manager.yt_dlp, 'YoutubeDL', FakeYDL(info))
+    def info_for(url):
+        if url.startswith("ytsearch"):
+            return {'entries': [{'url': 'https://yt/vid1', 'id': 'vid1', 'title': 'Song'}]}
+        return {'url': 'http://audio', 'id': 'vid1', 'title': 'Song', 'duration': 100,
+                'http_headers': {'User-Agent': 'TestUA/1.0'}}
+
+    monkeypatch.setattr(music_manager.yt_dlp, 'YoutubeDL', FakeYDL(info_for))
 
     assert asyncio.run(mm._play_next(1)) is True
     assert vc.is_playing()
@@ -311,6 +326,11 @@ def test_play_next_search_result(mm, monkeypatch, patched_audio):
     assert playing.duration == 100          # backfilled from extraction
     assert vc.source.volume == 0.5          # per-guild volume applied
     assert mm._last_video_id[1] == 'vid1'   # autoplay seed recorded
+
+    # yt-dlp's request headers are forwarded to ffmpeg
+    before = patched_audio[0].kwargs['before_options']
+    assert 'User-Agent: TestUA/1.0' in before
+    assert '-reconnect' in before           # stock options preserved
 
 
 def test_play_next_failure_announces_and_continues(mm, monkeypatch, patched_audio):
@@ -342,7 +362,7 @@ def test_play_next_empty_search_skips_to_next(mm, monkeypatch, patched_audio):
     ])
 
     def info_for(url):
-        if url.startswith("ytsearch1:"):
+        if url.startswith("ytsearch"):
             return {'entries': []}
         return {'url': 'http://audio', 'id': 'vid2', 'title': 'Good', 'duration': 60}
 
@@ -351,6 +371,117 @@ def test_play_next_empty_search_skips_to_next(mm, monkeypatch, patched_audio):
     assert asyncio.run(mm._play_next(1)) is True
     assert "couldn't play **NoResults**" in channel.sent[0]
     assert mm.now_playing[1].title == "Good"
+
+
+def test_play_next_search_skips_unplayable_results(mm, monkeypatch, patched_audio):
+    """Age-restricted top hits are skipped in favor of a playable result."""
+    vc = FakeVoiceClient()
+    mm.voice_clients[1] = vc
+    mm.queues[1] = deque([track("Song", url="ytsearch1:artist song")])
+
+    tried = []
+
+    def info_for(url):
+        tried.append(url)
+        if url.startswith("ytsearch"):
+            return {'entries': [
+                {'id': 'age', 'url': 'https://yt/age', 'title': 'Age Restricted'},
+                {'id': 'ok', 'url': 'https://yt/ok', 'title': 'Playable'},
+            ]}
+        if url == 'https://yt/age':
+            raise Exception("Sign in to confirm your age")
+        return {'url': 'http://audio', 'id': 'ok', 'title': 'Playable', 'duration': 60}
+
+    monkeypatch.setattr(music_manager.yt_dlp, 'YoutubeDL', FakeYDL(info_for))
+
+    assert asyncio.run(mm._play_next(1)) is True
+    assert 'https://yt/age' in tried          # first result attempted
+    assert mm.now_playing[1] is not None      # ...but playback fell through to the next
+    assert mm._last_video_id[1] == 'ok'
+
+
+def test_add_to_queue_search_none_playable(mm, monkeypatch):
+    vc = FakeVoiceClient()
+    vc._playing = True
+    mm.voice_clients[1] = vc
+
+    def info_for(url):
+        if url.startswith("ytsearch"):
+            return {'entries': [{'id': 'age', 'url': 'https://yt/age', 'title': 'Nope'}]}
+        raise Exception("Sign in to confirm your age")
+
+    monkeypatch.setattr(music_manager.yt_dlp, 'YoutubeDL', FakeYDL(info_for))
+
+    success, message = asyncio.run(mm.add_to_queue(1, "ytsearch1:cursed song", 42))
+    assert success is False
+    assert message == "found results for 'cursed song' but none were playable"
+
+
+# --- silent stream failures (ffmpeg dies instantly, e.g. HTTP 403) ---
+
+def test_instant_death_retries_once(mm, scheduled):
+    vc = FakeVoiceClient()
+    mm.voice_clients[1] = vc
+    mm.loop = object()
+    failing = track("Rejected", duration=200)
+    failing.started_at = time.time()  # "finished" immediately after starting
+    mm.now_playing[1] = failing
+
+    mm._playback_finished(1, None)
+
+    assert failing.retries == 1
+    assert mm.queues[1][0] is failing            # re-queued for a fresh attempt
+    assert len(scheduled) == 1                   # advance scheduled (replays it)
+
+
+def test_instant_death_twice_announces_and_drops(mm, scheduled):
+    client = FakeClient()
+    channel = client.add_channel(FakeChannel(100))
+    mm.client = client
+
+    vc = FakeVoiceClient()
+    mm.voice_clients[1] = vc
+    mm.loop = object()
+    failing = track("Rejected", duration=200)
+    failing.started_at = time.time()
+    failing.retries = 1                          # already retried once
+    mm.now_playing[1] = failing
+
+    mm._playback_finished(1, None)
+
+    assert not mm.queues.get(1)                  # dropped, not re-queued
+    # announce + play_next both scheduled through the loop
+    assert len(scheduled) == 2
+
+
+def test_full_playback_not_treated_as_failure(mm, scheduled):
+    vc = FakeVoiceClient()
+    mm.voice_clients[1] = vc
+    mm.loop = object()
+    played = track("Fine", duration=200)
+    played.started_at = time.time() - 200        # actually played through
+    mm.now_playing[1] = played
+
+    mm._playback_finished(1, None)
+
+    assert played.retries == 0
+    assert not mm.queues.get(1)
+
+
+def test_quick_skip_not_treated_as_failure(mm, scheduled):
+    vc = FakeVoiceClient()
+    vc._playing = True
+    mm.voice_clients[1] = vc
+    mm.loop = object()
+    current = track("Skipped Fast", duration=200)
+    current.started_at = time.time()
+    mm.now_playing[1] = current
+
+    mm.skip(1)
+    mm._playback_finished(1, None)
+
+    assert current.retries == 0
+    assert not mm.queues.get(1)                  # skip drops it, no retry
 
 
 # --- autoplay ---

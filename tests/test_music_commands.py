@@ -65,8 +65,12 @@ def test_playnext_front_queues(mm, ctx, monkeypatch):
     mm.voice_clients[1] = vc
     mm.queues[1] = deque([track("existing")])
 
-    info = {'title': 'Jumped', 'webpage_url': 'https://yt/jumped', 'duration': 60}
-    monkeypatch.setattr(music_manager.yt_dlp, 'YoutubeDL', FakeYDL(info))
+    def info_for(url):
+        if url.startswith("ytsearch"):
+            return {'entries': [{'id': 'j1', 'url': 'https://yt/jumped', 'title': 'Jumped'}]}
+        return {'title': 'Jumped', 'webpage_url': 'https://yt/jumped', 'duration': 60}
+
+    monkeypatch.setattr(music_manager.yt_dlp, 'YoutubeDL', FakeYDL(info_for))
 
     response = asyncio.run(playnext(ctx, "some song"))
     assert response == "up next: Jumped"
@@ -135,6 +139,41 @@ def test_skip_command(mm, ctx):
     mm.queues[1] = deque([track("next")])
     assert asyncio.run(skip(ctx, "")) == "skipped: current"
     assert 1 in mm._skipped
+
+
+# --- streaming resolution (odesli search fallback) ---
+
+def test_resolve_single_query_no_double_search_prefix(monkeypatch):
+    """Odesli falling back to a ytsearch1: query must not get prefixed again."""
+    import importlib
+    play_module = importlib.import_module('commands.play')
+
+    monkeypatch.setattr(play_module, 'resolve_streaming_url',
+                        lambda url: "ytsearch1:Ninajirachi Song Title")
+
+    result = play_module._resolve_single_query(
+        "https://music.apple.com/us/album/song/1824602984?i=1824602992")
+    assert result == "ytsearch1:Ninajirachi Song Title"
+
+
+def test_resolve_single_query_search_terms_still_prefixed():
+    import importlib
+    play_module = importlib.import_module('commands.play')
+    assert play_module._resolve_single_query("aespa whiplash") == "ytsearch1:aespa whiplash"
+
+
+def test_add_to_queue_empty_search_is_friendly(mm, ctx, monkeypatch):
+    """A search with no results should return a message, not crash."""
+    vc = FakeVoiceClient()
+    vc._playing = True
+    mm.voice_clients[1] = vc
+
+    monkeypatch.setattr(music_manager.yt_dlp, 'YoutubeDL', FakeYDL({'entries': []}))
+
+    success, message = asyncio.run(mm.add_to_queue(1, "ytsearch1:gibberish query", 42))
+    assert success is False
+    assert message == "couldn't find anything for: gibberish query"
+    assert not mm.queues.get(1)
 
 
 # --- stop / bare play resume ---

@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 from playlist_resolver import PlaylistTrack
 from .play import _ensure_voice
+import steely_dan
 
 if TYPE_CHECKING:
     from message_handler import CommandContext
@@ -81,6 +82,12 @@ async def loadq(ctx: 'CommandContext', args: str) -> str:
         return error
 
     tracks = [PlaylistTrack(query=t["url"], title=t["title"]) for t in playlist["tracks"]]
+
+    # Playlists saved before the ban can still be carrying contraband
+    tracks, dropped = steely_dan.purge(tracks)
+    if not tracks:
+        return f"**{playlist['name']}** is wall-to-wall Steely Dan. queued nothing. {steely_dan.refusal()}"
+
     success, message = await ctx.music_manager.add_playlist_to_queue(
         guild_id,
         tracks,
@@ -91,7 +98,7 @@ async def loadq(ctx: 'CommandContext', args: str) -> str:
     if not success:
         return message
 
-    return f"queued {len(tracks)} tracks from **{playlist['name']}**"
+    return f"queued {len(tracks)} tracks from **{playlist['name']}**{steely_dan.playlist_note(dropped)}"
 
 
 async def playlists(ctx: 'CommandContext', args: str) -> str:

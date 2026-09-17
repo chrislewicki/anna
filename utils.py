@@ -10,6 +10,25 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def youtube_search_query(terms: str, results: int = 1) -> str:
+    """
+    Build a ytsearchN: query for yt-dlp.
+
+    Strips asterisks: YouTube treats them as search operators, so censored
+    titles from streaming services (e.g. "F**k My Computer") return zero
+    results if passed through verbatim.
+
+    Args:
+        terms: Free-text search terms
+        results: Number of results to request
+
+    Returns:
+        A "ytsearchN:<cleaned terms>" string
+    """
+    cleaned = ' '.join(terms.replace('*', ' ').split())
+    return f"ytsearch{results}:{cleaned}"
+
+
 def format_duration_long(seconds: int) -> str:
     """
     Format seconds as a compact multi-unit duration.

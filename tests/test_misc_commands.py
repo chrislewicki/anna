@@ -7,11 +7,20 @@ from commands.choose import choose
 from commands.eightball import eightball, RESPONSES
 from commands.help import help_cmd
 from commands.uptime import uptime
-from utils import format_duration_long, format_track_time
+from utils import format_duration_long, format_track_time, youtube_search_query
 from conftest import make_ctx
 
 
 # --- utils ---
+
+def test_youtube_search_query_strips_asterisks():
+    # Censored titles from streaming services break YouTube search verbatim
+    assert youtube_search_query("Ninajirachi F**k My Computer") == "ytsearch1:Ninajirachi F k My Computer"
+
+
+def test_youtube_search_query_plain():
+    assert youtube_search_query("aespa whiplash") == "ytsearch1:aespa whiplash"
+    assert youtube_search_query("aespa whiplash", results=5) == "ytsearch5:aespa whiplash"
 
 def test_format_duration_long():
     assert format_duration_long(93784) == "1d 2h 3m 4s"
